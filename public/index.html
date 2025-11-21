@@ -1078,6 +1078,8 @@
         });
 
         socket.on('gameAction', (action) => {
+            // Players only - host ignores its own broadcasts
+            if (isHost()) return;
             // Execute action from host
             if (typeof window[action.type] === 'function') {
                 window[action.type].apply(null, action.params || []);
