@@ -41,6 +41,12 @@
             color: white;
         }
 
+        .header-title.buzzed-in {
+            text-decoration: underline;
+            text-decoration-thickness: 3px;
+            text-underline-offset: 4px;
+        }
+
         .score-box {
             background: rgba(255, 255, 255, 0.15);
             backdrop-filter: blur(12px);
@@ -100,7 +106,6 @@
         }
 
         .round-btn.disabled {
-            opacity: 0.5;
             cursor: not-allowed;
             pointer-events: none;
         }
@@ -169,7 +174,6 @@
         }
 
         .question-btn.disabled {
-            opacity: 0.5;
             cursor: not-allowed;
             pointer-events: none;
         }
@@ -293,7 +297,6 @@
         }
 
         .clue-btn.disabled {
-            opacity: 0.5;
             cursor: not-allowed;
             pointer-events: none;
         }
@@ -342,7 +345,6 @@
         }
 
         .btn.disabled {
-            opacity: 0.5;
             cursor: not-allowed;
             pointer-events: none;
         }
@@ -413,7 +415,6 @@
         }
 
         .back-btn.disabled {
-            opacity: 0.5;
             cursor: not-allowed;
             pointer-events: none;
         }
@@ -485,7 +486,6 @@
         }
 
         .wall-tile.disabled {
-            opacity: 0.7;
             cursor: not-allowed;
             pointer-events: none;
         }
@@ -610,7 +610,6 @@
         }
 
         .guess-btn.disabled {
-            opacity: 0.5;
             cursor: not-allowed;
             pointer-events: none;
         }
@@ -795,7 +794,6 @@
         }
 
         .end-session-btn.disabled {
-            opacity: 0.5;
             cursor: not-allowed;
             pointer-events: none;
         }
@@ -982,6 +980,7 @@
         let timerElapsedWhenStopped = 0;
         let timerStopped = false;
         let timerStoppedOnClue = null;
+        let showCluesTimeUpModal = false;
 
         // Round 3 (Connecting Wall) state
         let wallTiles = [];
@@ -1004,6 +1003,9 @@
         let vowelsClueRevealed = false;
         let vowelsAnswerRevealed = false;
         let vowelsShowTimeUpModal = false;
+        
+        // Buzzer state
+        let buzzedInPlayer = null;
 
         // Socket event listeners
         socket.on('gameCreated', ({ gameCode: code, role }) => {
@@ -1046,6 +1048,9 @@
             completedQuestions = gameState.completedQuestions;
             timerStopped = gameState.timerStopped;
             timerElapsedWhenStopped = gameState.timerElapsedWhenStopped;
+            timerStartTime = gameState.timerStartTime;
+            buzzedInPlayer = gameState.buzzedInPlayer;
+            showCluesTimeUpModal = gameState.showCluesTimeUpModal;
             
             // Round 3 state
             wallTiles = gameState.wallTiles;
@@ -1067,14 +1072,21 @@
             vowelsAnswerRevealed = gameState.vowelsAnswerRevealed;
             vowelsShowTimeUpModal = gameState.vowelsShowTimeUpModal;
             
+            // Start timer on player side if host has timer running
+            if (timerStartTime && !timerInterval && !timerStopped) {
+                timerInterval = setInterval(updateTimer, 100);
+            }
+            
             render();
         });
 
         socket.on('playerBuzzed', ({ playerName }) => {
+            buzzedInPlayer = playerName;
             if (myRole === 'host') {
                 // Stop timer when player buzzes
                 stopTimer();
             }
+            render();
         });
 
         socket.on('gameAction', (action) => {
@@ -1120,6 +1132,8 @@
                 completedQuestions,
                 timerStopped,
                 timerElapsedWhenStopped,
+                timerStartTime,
+                showCluesTimeUpModal,
                 wallTiles,
                 selectedTiles,
                 solvedGroups,
@@ -1135,7 +1149,8 @@
                 vowelsCategoryAnimating,
                 vowelsClueRevealed,
                 vowelsAnswerRevealed,
-                vowelsShowTimeUpModal
+                vowelsShowTimeUpModal,
+                buzzedInPlayer
             });
         }
 
@@ -1196,6 +1211,11 @@
                     render();
                 } else if (view === 'vowels' && vowelsCategoryRevealed) {
                     vowelsShowTimeUpModal = true;
+                    syncGameState();
+                    render();
+                } else if (view === 'clues' && !answerRevealed) {
+                    // Timeout for Connections/Sequence rounds
+                    showCluesTimeUpModal = true;
                     syncGameState();
                     render();
                 }
@@ -1277,6 +1297,8 @@
             answerRevealed = false;
             timerStopped = false;
             timerStoppedOnClue = null;
+            showCluesTimeUpModal = false;
+            buzzedInPlayer = null;
             resetTimer();
             timerDuration = 60000;
             view = 'clues';
@@ -1317,6 +1339,7 @@
             const pointsEarned = pointsValues[timerStoppedOnClue];
             score += pointsEarned;
             answerRevealed = true;
+            buzzedInPlayer = null;
             
             broadcastAction('markCorrect');
             syncGameState();
@@ -1327,8 +1350,23 @@
             if (!isHost()) return;
             
             answerRevealed = true;
+            buzzedInPlayer = null;
             
             broadcastAction('markIncorrect');
+            syncGameState();
+            render();
+        }
+
+        function revealRemainingCluesFromTimeout() {
+            if (!isHost()) return;
+            
+            // Reveal all remaining clues
+            cluesRevealed = 4;
+            answerRevealed = true;
+            showCluesTimeUpModal = false;
+            buzzedInPlayer = null;
+            
+            broadcastAction('revealRemainingCluesFromTimeout');
             syncGameState();
             render();
         }
@@ -1367,6 +1405,8 @@
             answerRevealed = false;
             timerStopped = false;
             timerStoppedOnClue = null;
+            showCluesTimeUpModal = false;
+            buzzedInPlayer = null;
             resetTimer();
             
             broadcastAction('backToQuestions');
@@ -2099,6 +2139,16 @@
             }
             html += '</div>';
             
+            // Timeout modal for Connections/Sequence rounds
+            if (showCluesTimeUpModal) {
+                html += '<div class="time-up-modal">';
+                html += '<div class="time-up-content">';
+                html += '<div class="time-up-title">Time is Up</div>';
+                html += `<button class="btn btn-primary ${!isHost() ? 'disabled' : ''}" onclick="revealRemainingCluesFromTimeout()" style="font-size: 1.25rem; padding: 1rem 2rem;">Reveal the Remaining Clues</button>`;
+                html += '</div>';
+                html += '</div>';
+            }
+            
             return html;
         }
 
@@ -2326,9 +2376,10 @@
             else if (view === 'vowels') content = renderVowels();
             else if (view === 'finalScore') content = renderFinalScore();
             
+            const buzzedClass = buzzedInPlayer && playerNames.includes(buzzedInPlayer) ? ' buzzed-in' : '';
             const headerHtml = view === 'finalScore' ? '' : `
                 <div class="header-card">
-                    <h1 class="header-title">${playerNames}</h1>
+                    <h1 class="header-title${buzzedClass}">${playerNames}</h1>
                     <div class="score-box">
                         <div class="score-value">${score}</div>
                     </div>
