@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Only Connect Trivia Game - Multiplayer</title>
+    <title>BBH Only Connect</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
         * {
@@ -1230,6 +1230,13 @@
             if (timerStartTime === null) {
                 timerStartTime = Date.now();
                 timerInterval = setInterval(updateTimer, 100);
+                // Reset the time-up modal state when starting a new timer
+                showTimeUpModal = false;
+                showCluesTimeUpModal = false;
+                vowelsShowTimeUpModal = false;
+                if (isHost()) {
+                    syncGameState();
+                }
             }
         }
 
@@ -1293,6 +1300,10 @@
             timerStopped = false;
             timerElapsedWhenStopped = 0;
             timerStoppedOnClue = null;
+            // Reset modal states
+            showTimeUpModal = false;
+            showCluesTimeUpModal = false;
+            vowelsShowTimeUpModal = false;
         }
 
         // Keyboard event listener for spacebar (players only)
