@@ -1170,7 +1170,7 @@
         function syncGameState() {
             if (!isHost()) return;
             
-            socket.emit('syncState', {
+            const state = {
                 score,
                 view,
                 currentRound,
@@ -1182,7 +1182,10 @@
                 timerElapsedWhenStopped,
                 timerStartTime,
                 timerDuration,
+                buzzedInPlayer,
                 showCluesTimeUpModal,
+                showTimeUpModal,
+                showWallFrozenModal,
                 wallTiles,
                 selectedTiles,
                 solvedGroups,
@@ -1190,8 +1193,6 @@
                 wallPhase,
                 connectionGuesses,
                 wallTimerReady,
-                showTimeUpModal,
-                showWallFrozenModal,
                 vowelsCurrentCategory,
                 vowelsCurrentClue,
                 vowelsCategoryRevealed,
@@ -1199,16 +1200,17 @@
                 vowelsClueRevealed,
                 vowelsAnswerRevealed,
                 vowelsShowTimeUpModal,
-                buzzedInPlayer,
-                currentCategoryName
-            });
+                currentCategoryName: currentCategoryName || ''
+            };
+            
+            socket.emit('syncState', state);
         }
-
+        
         function broadcastAction(type, params = []) {
             if (!isHost()) return;
             socket.emit('hostAction', { type, params });
         }
-
+        
         function updatePlayerNamesDisplay() {
             if (isHost()) {
                 if (allPlayers.length === 0) {
@@ -1357,13 +1359,13 @@
             cluesRevealed = 0;
             answerRevealed = false;
             timerStopped = false;
+            timerElapsedWhenStopped = 0;
+            timerStartTime = null;
             timerStoppedOnClue = null;
             showCluesTimeUpModal = false;
             showTimeUpModal = false;
+            showWallFrozenModal = false;
             buzzedInPlayer = null;
-            resetTimer();
-            timerDuration = 60000;
-            view = 'clues';
             
             // Set category name
             if (currentRound === 0) {
@@ -1371,6 +1373,8 @@
             } else if (currentRound === 1) {
                 currentCategoryName = "Sequences";
             }
+            
+            view = 'clues';
             
             // Sync the state with players
             syncGameState();
