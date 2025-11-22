@@ -1171,21 +1171,32 @@
             if (!isHost()) return;
             
             const state = {
+                // Basic game state
                 score,
                 view,
                 currentRound,
                 currentQuestion,
+                currentCategoryName: currentCategoryName || '',
+                
+                // Clues state
                 cluesRevealed,
                 answerRevealed,
                 completedQuestions,
+                buzzedInPlayer,
+                
+                // Timer state
                 timerStopped,
                 timerElapsedWhenStopped,
                 timerStartTime,
                 timerDuration,
-                buzzedInPlayer,
+                
+                // Modal states
                 showCluesTimeUpModal,
                 showTimeUpModal,
                 showWallFrozenModal,
+                vowelsShowTimeUpModal,
+                
+                // Wall state
                 wallTiles,
                 selectedTiles,
                 solvedGroups,
@@ -1193,14 +1204,14 @@
                 wallPhase,
                 connectionGuesses,
                 wallTimerReady,
+                
+                // Vowels state
                 vowelsCurrentCategory,
                 vowelsCurrentClue,
                 vowelsCategoryRevealed,
                 vowelsCategoryAnimating,
                 vowelsClueRevealed,
-                vowelsAnswerRevealed,
-                vowelsShowTimeUpModal,
-                currentCategoryName: currentCategoryName || ''
+                vowelsAnswerRevealed
             };
             
             socket.emit('syncState', state);
@@ -1230,54 +1241,59 @@
         // Timer functions
         function startTimer() {
             if (timerStartTime === null) {
+                // Reset all modal states when starting a new timer
+                resetAllModals();
+                
+                // Reset timer state
                 timerStartTime = Date.now();
+                timerStopped = false;
+                timerElapsedWhenStopped = 0;
+                
+                // Start the timer
                 timerInterval = setInterval(updateTimer, 100);
-                // Reset the time-up modal state when starting a new timer
-                showTimeUpModal = false;
-                showCluesTimeUpModal = false;
-                vowelsShowTimeUpModal = false;
+                
+                // Sync the state if host
                 if (isHost()) {
                     syncGameState();
                 }
             }
         }
+        
+        function resetAllModals() {
+            showTimeUpModal = false;
+            showCluesTimeUpModal = false;
+            vowelsShowTimeUpModal = false;
+        }
 
         function updateTimer() {
-            if (timerStopped) {
-                const remaining = Math.max(0, timerDuration - timerElapsedWhenStopped);
-                const percentage = (remaining / timerDuration) * 100;
-                const timerBar = document.getElementById('timerBar');
-                const timerText = document.getElementById('timerText');
-                if (timerBar) timerBar.style.width = percentage + '%';
-                if (timerText) timerText.textContent = Math.ceil(remaining / 1000) + 's';
-                return;
-            }
-            
-            const elapsed = Date.now() - timerStartTime;
+            if (!timerStartTime) return;
+
+            const now = Date.now();
+            const elapsed = timerElapsedWhenStopped + (now - timerStartTime);
             const remaining = Math.max(0, timerDuration - elapsed);
-            const percentage = (remaining / timerDuration) * 100;
-            const timerBar = document.getElementById('timerBar');
-            const timerText = document.getElementById('timerText');
-            if (timerBar) timerBar.style.width = percentage + '%';
-            if (timerText) timerText.textContent = Math.ceil(remaining / 1000) + 's';
-            
-            if (remaining === 0) {
-                stopTimer();
-                
-                if (view === 'wall' && wallPhase === 'solving') {
-                    showTimeUpModal = true;
-                    syncGameState();
-                    render();
-                } else if (view === 'vowels' && vowelsCategoryRevealed) {
-                    vowelsShowTimeUpModal = true;
-                    syncGameState();
-                    render();
-                } else if (view === 'clues' && !answerRevealed) {
-                    // Timeout for Connections/Sequence rounds
-                    showCluesTimeUpModal = true;
-                    syncGameState();
-                    render();
+
+            updateTimerDisplay(remaining);
+
+            if (remaining <= 0) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+
+                if (isHost()) {
+                    handleTimerExpiration();
                 }
+            }
+        }
+
+        function handleTimerExpiration() {
+            if (view === 'clues' && !showTimeUpModal) {
+                showTimeUpModal = true;
+                syncGameState();
+            } else if (view === 'wall' && !showWallFrozenModal) {
+                showWallFrozenModal = true;
+                syncGameState();
+            } else if (view === 'vowels' && !vowelsShowTimeUpModal) {
+                vowelsShowTimeUpModal = true;
+                syncGameState();
             }
         }
 
@@ -1296,16 +1312,27 @@
         }
 
         function resetTimer() {
-            if (timerInterval) clearInterval(timerInterval);
-            timerInterval = null;
+            // Clear any running timer
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+            
+            // Reset timer state
             timerStartTime = null;
             timerStopped = false;
             timerElapsedWhenStopped = 0;
             timerStoppedOnClue = null;
+            
             // Reset modal states
             showTimeUpModal = false;
             showCluesTimeUpModal = false;
             vowelsShowTimeUpModal = false;
+            
+            // If host, sync the state
+            if (isHost()) {
+                syncGameState();
+            }
         }
 
         // Keyboard event listener for spacebar (players only)
@@ -1365,16 +1392,22 @@
             showCluesTimeUpModal = false;
             showTimeUpModal = false;
             showWallFrozenModal = false;
+            vowelsShowTimeUpModal = false;
             buzzedInPlayer = null;
             
-            // Set category name
+            // Reset the timer
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+            
+            // Set category name and timer duration
             if (currentRound === 0) {
                 currentCategoryName = "Connections";
             } else if (currentRound === 1) {
                 currentCategoryName = "Sequences";
             }
-            
-            view = 'clues';
+            timerDuration = 60000; // 1 minute for each question
             
             // Sync the state with players
             syncGameState();
