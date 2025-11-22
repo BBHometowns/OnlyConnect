@@ -1283,6 +1283,14 @@
                 }
             }
         }
+        
+        function updateTimerDisplay(remaining) {
+            const percentage = (remaining / timerDuration) * 100;
+            const timerBar = document.getElementById('timerBar');
+            const timerText = document.getElementById('timerText');
+            if (timerBar) timerBar.style.width = percentage + '%';
+            if (timerText) timerText.textContent = Math.ceil(remaining / 1000) + 's';
+        }
 
         function handleTimerExpiration() {
             if (view === 'clues' && !showTimeUpModal) {
@@ -1402,11 +1410,17 @@
             }
             
             // Set category name and timer duration
-            if (currentRound === 0) {
-                currentCategoryName = "Connections";
-            } else if (currentRound === 1) {
-                currentCategoryName = "Sequences";
+            switch (currentRound) {
+                case 0:
+                    currentCategoryName = "Connections";
+                    break;
+                case 1:
+                    currentCategoryName = "Sequences";
+                    break;
             }
+            
+            // Set the view to 'clues' and timer duration
+            view = 'clues';
             timerDuration = 60000; // 1 minute for each question
             
             // Sync the state with players
