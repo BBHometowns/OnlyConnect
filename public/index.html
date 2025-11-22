@@ -1352,12 +1352,14 @@
             const questionKey = `r${currentRound}q${questionIndex}`;
             if (completedQuestions.includes(questionKey)) return;
             
+            // Reset all relevant states
             currentQuestion = questionIndex;
             cluesRevealed = 0;
             answerRevealed = false;
             timerStopped = false;
             timerStoppedOnClue = null;
             showCluesTimeUpModal = false;
+            showTimeUpModal = false;
             buzzedInPlayer = null;
             resetTimer();
             timerDuration = 60000;
@@ -1370,7 +1372,7 @@
                 currentCategoryName = "Sequences";
             }
             
-            broadcastAction('selectQuestion', [questionIndex]);
+            // Sync the state with players
             syncGameState();
             render();
         }
