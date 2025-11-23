@@ -1080,7 +1080,10 @@
         });
 
         socket.on('syncGameState', (gameState) => {
-            // Sync state from host
+            // Store the current timer state
+            const wasTimerRunning = timerInterval !== null && !timerStopped;
+            
+            // Update all state from host
             score = gameState.score;
             view = gameState.view;
             currentRound = gameState.currentRound;
@@ -1095,7 +1098,7 @@
             buzzedInPlayer = gameState.buzzedInPlayer;
             showCluesTimeUpModal = gameState.showCluesTimeUpModal;
             
-            // Round 3 state
+            // Wall state
             wallTiles = gameState.wallTiles;
             selectedTiles = gameState.selectedTiles;
             solvedGroups = gameState.solvedGroups;
@@ -1106,7 +1109,7 @@
             showTimeUpModal = gameState.showTimeUpModal;
             showWallFrozenModal = gameState.showWallFrozenModal;
             
-            // Round 4 state
+            // Vowels state
             vowelsCurrentCategory = gameState.vowelsCurrentCategory;
             vowelsCurrentClue = gameState.vowelsCurrentClue;
             vowelsCategoryRevealed = gameState.vowelsCategoryRevealed;
@@ -1116,9 +1119,30 @@
             vowelsShowTimeUpModal = gameState.vowelsShowTimeUpModal;
             currentCategoryName = gameState.currentCategoryName || '';
             
-            // Start timer on player side if host has timer running
-            if (timerStartTime && !timerInterval && !timerStopped) {
-                timerInterval = setInterval(updateTimer, 100);
+            // Handle timer state
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+            
+            // Only restart the timer if it was running and not stopped
+            if (wasTimerRunning) {
+                // Calculate remaining time
+                const now = Date.now();
+                const elapsed = timerElapsedWhenStopped + (now - timerStartTime);
+                const remaining = Math.max(0, timerDuration - elapsed);
+                
+                // Update display immediately
+                updateTimerDisplay(remaining);
+                
+                // Restart timer if there's still time left
+                if (remaining > 0) {
+                    timerInterval = setInterval(updateTimer, 100);
+                }
+            } else if (timerStopped) {
+                // If timer is stopped, just update the display with the remaining time
+                const remaining = Math.max(0, timerDuration - timerElapsedWhenStopped);
+                updateTimerDisplay(remaining);
             }
             
             render();
@@ -1126,11 +1150,14 @@
 
         socket.on('playerBuzzed', ({ playerName }) => {
             buzzedInPlayer = playerName;
-            if (myRole === 'host') {
+            if (isHost()) {
                 // Stop timer when player buzzes
                 stopTimer();
+                render();
+            } else {
+                // On player side, just update the UI
+                render();
             }
-            render();
         });
 
         socket.on('gameAction', (action) => {
@@ -1265,6 +1292,7 @@
             vowelsShowTimeUpModal = false;
         }
 
+        // Update the timer display and check if the timer has expired
         function updateTimer() {
             if (!timerStartTime) return;
 
@@ -1304,20 +1332,40 @@
                 syncGameState();
             }
         }
-
-        function stopTimer() {
+        
+        function resetTimer() {
+            // Clear any running timer
             if (timerInterval) {
-                if (!timerStopped && timerStartTime !== null) {
-                    timerElapsedWhenStopped = Date.now() - timerStartTime;
-                    timerStoppedOnClue = cluesRevealed - 1;
-                }
                 clearInterval(timerInterval);
                 timerInterval = null;
-                timerStopped = true;
-                syncGameState();
-                render();
             }
+            
+            // Reset timer state
+            timerStartTime = null;
+            timerStopped = false;
+            timerElapsedWhenStopped = 0;
+            timerStoppedOnClue = null;
         }
+        
+    function stopTimer() {
+        if (timerInterval) {
+            clearInterval(timerInterval);
+            timerInterval = null;
+        }
+        
+        if (timerStartTime) {
+            // Calculate elapsed time when stopping
+            timerElapsedWhenStopped += Date.now() - timerStartTime;
+            timerStartTime = null;
+        }
+        
+        timerStopped = true;
+        
+        // Sync the state if host
+        if (isHost()) {
+            syncGameState();
+        }
+    }
 
         function resetTimer() {
             // Clear any running timer
