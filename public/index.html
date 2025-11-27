@@ -1324,12 +1324,15 @@
             if (view === 'clues' && !showCluesTimeUpModal) {
                 showCluesTimeUpModal = true;
                 syncGameState();
+                render();  // Add render() to ensure host sees the modal
             } else if (view === 'wall' && !showWallFrozenModal) {
                 showWallFrozenModal = true;
                 syncGameState();
+                render();
             } else if (view === 'vowels' && !vowelsShowTimeUpModal) {
                 vowelsShowTimeUpModal = true;
                 syncGameState();
+                render();
             }
         }
         
@@ -1541,9 +1544,10 @@
             // Reveal all remaining clues
             cluesRevealed = 4;
             answerRevealed = true;
-            showCluesTimeUpModal = false;
+            showCluesTimeUpModal = false;  // Clear the modal
             buzzedInPlayer = null;
             
+            // Broadcast BEFORE syncing to ensure players get the update
             broadcastAction('revealRemainingCluesFromTimeout');
             syncGameState();
             render();
