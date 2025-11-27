@@ -1321,8 +1321,8 @@
         }
 
         function handleTimerExpiration() {
-            if (view === 'clues' && !showTimeUpModal) {
-                showTimeUpModal = true;
+            if (view === 'clues' && !showCluesTimeUpModal) {
+                showCluesTimeUpModal = true;
                 syncGameState();
             } else if (view === 'wall' && !showWallFrozenModal) {
                 showWallFrozenModal = true;
@@ -1345,6 +1345,16 @@
             timerStopped = false;
             timerElapsedWhenStopped = 0;
             timerStoppedOnClue = null;
+            
+            // Reset modal states
+            showTimeUpModal = false;
+            showCluesTimeUpModal = false;  // Make sure this line exists
+            vowelsShowTimeUpModal = false;
+            
+            // If host, sync the state
+            if (isHost()) {
+                syncGameState();
+            }
         }
         
     function stopTimer() {
