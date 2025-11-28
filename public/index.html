@@ -1945,19 +1945,15 @@
         }
 
         function toggleTile(index) {
-            // During solving phase:
-            // - Players send action to host
-            // - Host processes and broadcasts
-            // - All clients render based on synced state
-            
+            // Only players can click tiles during solving
             if (isPlayer() && wallPhase === 'solving' && wallTimerReady) {
-                // Player just sends the request to host
+                // Player sends the request to host
                 socket.emit('playerWallAction', { type: 'toggleTile', index: index });
                 return;
             }
             
-            // Host processes the tile toggle
-            if (!isHost()) return;
+            // Host shouldn't be able to click tiles at all
+            if (isHost()) return;
             if (wallPhase !== 'solving') return;
             if (timerStopped) return;
             
@@ -2015,6 +2011,12 @@
                 score += 1;
                 
                 if (solvedGroups.length === 3) {
+                    // Stop the timer when wall is solved
+                    if (timerInterval) {
+                        clearInterval(timerInterval);
+                        timerInterval = null;
+                        timerStopped = true;
+                    }
                     setTimeout(() => {
                         autoSolveLastGroup();
                         setTimeout(() => {
@@ -2578,9 +2580,8 @@
                     classes += ' locked';
                 }
                 
-                // Players can click during solving, host during guessing
-                const canClick = (isPlayer() && wallPhase === 'solving' && wallTimerReady && !tile.solved) ||
-                                (isHost() && wallPhase === 'solving' && wallTimerReady && !tile.solved);
+                // Only players can click during solving
+                const canClick = isPlayer() && wallPhase === 'solving' && wallTimerReady && !tile.solved;
                 
                 if (!canClick) {
                     classes += ' disabled';
@@ -2604,11 +2605,11 @@
                         html += `<div class="connection-display${fadeInClass}" style="top: ${overlayTop}px;${displayStyle}">${group.connection}</div>`;
                     }
                     
-                    if (!connectionGuesses[idx]) {
+                    if (!connectionGuesses[idx] && isHost()) {  // Add isHost() check
                         const buttonsTop = topPx + 27;
                         html += `<div style="position: absolute; right: -120px; top: ${buttonsTop}px; display: flex; gap: 0.5rem;">`;
-                        html += `<button class="guess-btn correct ${!isHost() ? 'disabled' : ''}" onclick="guessConnection(${idx}, true)">✓</button>`;
-                        html += `<button class="guess-btn incorrect ${!isHost() ? 'disabled' : ''}" onclick="guessConnection(${idx}, false)">✗</button>`;
+                        html += '<button class="guess-btn correct" onclick="guessConnection(' + idx + ', true)">✓</button>';
+                        html += '<button class="guess-btn incorrect" onclick="guessConnection(' + idx + ', false)">✗</button>';
                         html += '</div>';
                     }
                 });
@@ -2619,43 +2620,44 @@
             if (wallPhase === 'solving') {
                 html += '<div class="wall-timer-container">';
                 if (!wallTimerReady) {
-                    html += '<div style="text-align: center; padding: 1rem;">';
-                    html += `<button class="btn btn-primary ${!isHost() ? 'disabled' : ''}" onclick="startWallTimer()" style="font-size: 1.25rem; padding: 1rem 2rem;">Start Timer</button>`;
-                    html += '</div>';
-                } else {
-                    html += '<div class="timer-bar-container"><div id="timerBar" class="timer-bar" style="width: 100%;"></div><div id="timerText" class="timer-text">180s</div></div>';
+                    if (isHost()) {
+                        html += '<div style="text-align: center; padding: 1rem;">';
+                        html += '<button class="btn btn-primary" onclick="startWallTimer()" style="font-size: 1.25rem; padding: 1rem 2rem;">Start Timer</button>';
+                        html += '</div>';
+                    } else {
+                        // Empty space for players while waiting
+                        html += '<div style="height: 60px;"></div>';
+                    }
                 }
-                html += '</div>';
-            }
             
-            if (wallPhase === 'guessing') {
-                const allGuessed = solvedGroups.every((_, idx) => connectionGuesses[idx]);
-                if (allGuessed && isHost()) {
-                    html += '<div style="margin-top: 1.5rem; text-align: center;">';
-                    html += `<button class="btn btn-primary" onclick="selectRound(3)">Continue</button>`;
-                    html += '</div>';
+                if (wallPhase === 'guessing') {
+                    const allGuessed = solvedGroups.every((_, idx) => connectionGuesses[idx]);
+                    if (allGuessed && isHost()) {
+                        html += '<div style="margin-top: 1.5rem; text-align: center;">';
+                        html += `<button class="btn btn-primary" onclick="selectRound(3)">Continue</button>`;
+                        html += '</div>';
+                    }
                 }
-            }
             
-            if (showTimeUpModal) {
-                html += '<div class="time-up-modal">';
-                html += '<div class="time-up-content">';
-                html += '<div class="time-up-title">Time is Up</div>';
-                html += `<button class="btn btn-primary ${!isHost() ? 'disabled' : ''}" onclick="resolveWallAfterTimeout()" style="font-size: 1.25rem; padding: 1rem 2rem;">Resolve the Wall</button>`;
-                html += '</div>';
-                html += '</div>';
+                if (showTimeUpModal) {
+                    html += '<div class="time-up-modal">';
+                    html += '<div class="time-up-content" style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 200px;">';
+                    html += '<div class="time-up-title">Time is Up</div>';
+                    if (isHost()) {
+                        html += '<button class="btn btn-primary" onclick="resolveWallAfterTimeout()" style="font-size: 1.25rem; padding: 1rem 2rem; margin-top: 1.5rem;">Resolve the Wall</button>';
+                    }
+                
+                if (showWallFrozenModal) {
+                    html += '<div class="wall-frozen-modal">';
+                    html += '<div class="wall-frozen-content" style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 200px;">';
+                    html += '<div class="wall-frozen-title">The Wall has frozen!</div>';
+                    if (isHost()) {
+                        html += '<button class="btn btn-primary" onclick="resolveWallAfterFrozen()" style="font-size: 1.25rem; padding: 1rem 2rem; margin-top: 1.5rem;">Resolve the Wall</button>';
+                    }
+                }
+                
+                return html;
             }
-            
-            if (showWallFrozenModal) {
-                html += '<div class="wall-frozen-modal">';
-                html += '<div class="wall-frozen-content">';
-                html += '<div class="wall-frozen-title">The Wall has frozen!</div>';
-                html += `<button class="btn btn-primary ${!isHost() ? 'disabled' : ''}" onclick="resolveWallAfterFrozen()" style="font-size: 1.25rem; padding: 1rem 2rem;">Resolve the Wall</button>`;
-                html += '</div>';
-                html += '</div>';
-            }
-            
-            return html;
         }
 
         function renderVowels() {
