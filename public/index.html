@@ -1169,10 +1169,12 @@
             // Players only - host ignores its own broadcasts
             if (isHost()) return;
             
-            if (action.type === 'revealRemainingCluesFromTimeout') {
-                // State will already be synced, just render
+            // Handle dismissTimeUpModal specifically
+            if (action.type === 'dismissTimeUpModal') {
+                showCluesTimeUpModal = false;
                 render();
             } else if (typeof window[action.type] === 'function') {
+                // Execute other actions
                 window[action.type].apply(null, action.params || []);
             }
         });
@@ -1353,15 +1355,10 @@
             // Clear the modal flag
             showCluesTimeUpModal = false;
             
-            // Timer is already stopped, just clear the modal
-            
-            // Broadcast the action to players
-            broadcastAction('dismissTimeUpModal');
-            
-            // Sync state to all clients
+            // Immediately sync state to all clients (this should update everyone)
             syncGameState();
             
-            // Re-render
+            // Force a render on host
             render();
         }
         
