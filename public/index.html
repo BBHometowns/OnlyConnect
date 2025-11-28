@@ -2307,7 +2307,7 @@
         function verifyHostPassword() {
             const input = document.getElementById('passwordInput');
             const password = input ? input.value : '';
-            const correctPassword = 'production2025'; // Change this to your desired password
+            const correctPassword = 'Haych22'; // Change this to your desired password
             
             if (password === correctPassword) {
                 showCreateGame();
@@ -2758,9 +2758,17 @@
                 </div>
             `;
             
-            const categoryHtml = currentCategoryName && view !== 'rounds' && view !== 'questions' && view !== 'finalScore' 
-                ? `<div class="category-display">${currentCategoryName}</div>` 
-                : '';
+            let categoryHtml = '';
+            if (currentCategoryName && view !== 'rounds' && view !== 'questions' && view !== 'finalScore') {
+                let displayText = currentCategoryName;
+                
+                // Add question number for Connections and Sequences rounds
+                if (view === 'clues' && currentQuestion !== null) {
+                    displayText += `<br>Question ${currentQuestion + 1}`;
+                }
+                
+                categoryHtml = `<div class="category-display">${displayText}</div>`;
+            }
             
             const setupModalHtml = renderSetupModal();
             
