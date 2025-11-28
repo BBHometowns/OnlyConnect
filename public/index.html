@@ -603,6 +603,11 @@
             padding: 3rem;
             text-align: center;
             color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 200px;
         }
 
         .time-up-title, .wall-frozen-title {
@@ -1544,19 +1549,20 @@
         function revealRemainingCluesFromTimeout() {
             if (!isHost()) return;
             
-            // Reveal all remaining clues
-            cluesRevealed = 4;
-            answerRevealed = true;
-            showCluesTimeUpModal = false;  // Clear the modal
+            // Clear the modal and stop the timer, but don't auto-reveal
+            showCluesTimeUpModal = false;
+            timerStopped = true;
+            
+            // Clear buzzer if any
             buzzedInPlayer = null;
             
-            // First sync the state to update all clients
+            // Sync state first to update all clients
             syncGameState();
             
-            // Then broadcast the action for players to execute
+            // Then broadcast for any additional handling
             broadcastAction('revealRemainingCluesFromTimeout');
             
-            // Finally render for the host
+            // Render to update the view
             render();
         }
 
@@ -2440,7 +2446,7 @@
                 html += '<div class="time-up-title">Time is Up</div>';
                 // Only show button for host
                 if (isHost()) {
-                    html += '<button class="btn btn-primary" onclick="revealRemainingCluesFromTimeout()" style="font-size: 1.25rem; padding: 1rem 2rem;">Reveal the Remaining Clues</button>';
+                    html += '<button class="btn btn-primary" onclick="revealRemainingCluesFromTimeout()" style="font-size: 1.25rem; padding: 1rem 2rem;">Continue</button>';
                 }
                 html += '</div>';
                 html += '</div>';
