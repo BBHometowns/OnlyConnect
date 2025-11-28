@@ -1945,15 +1945,14 @@
         }
 
         function toggleTile(index) {
-            // Only players can click tiles during solving
+            // Players send action to host
             if (isPlayer() && wallPhase === 'solving' && wallTimerReady) {
-                // Player sends the request to host
                 socket.emit('playerWallAction', { type: 'toggleTile', index: index });
                 return;
             }
             
-            // Host shouldn't be able to click tiles at all
-            if (isHost()) return;
+            // Host processes the tile toggle (from wall action)
+            if (!isHost()) return;
             if (wallPhase !== 'solving') return;
             if (timerStopped) return;
             
@@ -2698,11 +2697,11 @@
             
             const buttonContainerClass = !isHost() ? 'buttons-container player-hidden' : 'buttons-container';
             html += `<div class="${buttonContainerClass}">`;
-            // Only show Correct/Incorrect if timer stopped by buzzer (not by timeout)
-            if (timerStopped && !answerRevealed && buzzedInPlayer) {
+            // Show Correct/Incorrect buttons when timer is stopped and answer not revealed
+            if (timerStopped && !vowelsAnswerRevealed && vowelsCategoryRevealed && !vowelsCategoryAnimating) {
                 html += '<div class="button-row">';
-                html += `<button class="btn btn-correct ${!isHost() ? 'disabled' : ''}" onclick="markCorrect()">Correct</button>`;
-                html += `<button class="btn btn-incorrect ${!isHost() ? 'disabled' : ''}" onclick="markIncorrect()">Incorrect</button>`;
+                html += `<button class="btn btn-correct ${!isHost() ? 'disabled' : ''}" onclick="markVowelsCorrect()">Correct</button>`;
+                html += `<button class="btn btn-incorrect ${!isHost() ? 'disabled' : ''}" onclick="markVowelsIncorrect()">Incorrect</button>`;
                 html += '</div>';
             } else if (vowelsAnswerRevealed) {
                 // After timeout OR after completing all clues
