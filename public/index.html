@@ -1133,11 +1133,11 @@
                 timerInterval = null;
             }
 
-            // If timer is stopped, show the frozen time
+            // If timer is stopped and we have a frozen time, show it
             if (timerStopped && timerRemainingWhenStopped !== null) {
                 updateTimerDisplay(timerRemainingWhenStopped);
-            } else if (timerStartTime && !timerStopped) {
-                // Only restart if timer should be running
+            } else if (!timerStopped && timerStartTime) {
+                // Timer is running
                 const now = Date.now();
                 const elapsed = timerElapsedWhenStopped + (now - timerStartTime);
                 const remaining = Math.max(0, timerDuration - elapsed);
@@ -1340,6 +1340,8 @@
             if (view === 'clues') {
                 showCluesTimeUpModal = true;
                 timerStopped = true;
+                timerRemainingWhenStopped = 0;  // Freeze at 0 when time expires
+                
                 // Lock the timer position when time expires
                 if (timerStoppedOnClue === null) {
                     timerStoppedOnClue = Math.max(0, cluesRevealed - 1);
@@ -1404,17 +1406,20 @@
         }
         
         function stopTimer() {
+            // First, capture the remaining time BEFORE clearing anything
+            if (timerStartTime && timerRemainingWhenStopped === null) {
+                const elapsed = timerElapsedWhenStopped + (Date.now() - timerStartTime);
+                timerRemainingWhenStopped = Math.max(0, timerDuration - elapsed);
+            }
+            
+            // Clear the interval
             if (timerInterval) {
                 clearInterval(timerInterval);
                 timerInterval = null;
             }
             
+            // Update elapsed time
             if (timerStartTime) {
-                // Calculate and store the remaining time when stopping
-                const elapsed = timerElapsedWhenStopped + (Date.now() - timerStartTime);
-                timerRemainingWhenStopped = Math.max(0, timerDuration - elapsed);
-                
-                // Calculate elapsed time when stopping
                 timerElapsedWhenStopped += Date.now() - timerStartTime;
                 timerStartTime = null;
             }
