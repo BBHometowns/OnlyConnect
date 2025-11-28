@@ -2628,36 +2628,44 @@
                         // Empty space for players while waiting
                         html += '<div style="height: 60px;"></div>';
                     }
+                } else {
+                    html += '<div class="timer-bar-container"><div id="timerBar" class="timer-bar" style="width: 100%;"></div><div id="timerText" class="timer-text">180s</div></div>';
                 }
-            
-                if (wallPhase === 'guessing') {
-                    const allGuessed = solvedGroups.every((_, idx) => connectionGuesses[idx]);
-                    if (allGuessed && isHost()) {
-                        html += '<div style="margin-top: 1.5rem; text-align: center;">';
-                        html += `<button class="btn btn-primary" onclick="selectRound(3)">Continue</button>`;
-                        html += '</div>';
-                    }
-                }
-            
-                if (showTimeUpModal) {
-                    html += '<div class="time-up-modal">';
-                    html += '<div class="time-up-content" style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 200px;">';
-                    html += '<div class="time-up-title">Time is Up</div>';
-                    if (isHost()) {
-                        html += '<button class="btn btn-primary" onclick="resolveWallAfterTimeout()" style="font-size: 1.25rem; padding: 1rem 2rem; margin-top: 1.5rem;">Resolve the Wall</button>';
-                    }
-                
-                if (showWallFrozenModal) {
-                    html += '<div class="wall-frozen-modal">';
-                    html += '<div class="wall-frozen-content" style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 200px;">';
-                    html += '<div class="wall-frozen-title">The Wall has frozen!</div>';
-                    if (isHost()) {
-                        html += '<button class="btn btn-primary" onclick="resolveWallAfterFrozen()" style="font-size: 1.25rem; padding: 1rem 2rem; margin-top: 1.5rem;">Resolve the Wall</button>';
-                    }
-                }
-                
-                return html;
+                html += '</div>';
             }
+
+            if (wallPhase === 'guessing') {
+                const allGuessed = solvedGroups.every((_, idx) => connectionGuesses[idx]);
+                if (allGuessed && isHost()) {
+                    html += '<div style="margin-top: 1.5rem; text-align: center;">';
+                    html += '<button class="btn btn-primary" onclick="selectRound(3)">Continue</button>';
+                    html += '</div>';
+                }
+            }
+
+            if (showTimeUpModal) {
+                html += '<div class="time-up-modal">';
+                html += '<div class="time-up-content" style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 200px;">';
+                html += '<div class="time-up-title">Time is Up</div>';
+                if (isHost()) {
+                    html += '<button class="btn btn-primary" onclick="resolveWallAfterTimeout()" style="font-size: 1.25rem; padding: 1rem 2rem; margin-top: 1.5rem;">Resolve the Wall</button>';
+                }
+                html += '</div>';
+                html += '</div>';
+            }
+
+            if (showWallFrozenModal) {
+                html += '<div class="wall-frozen-modal">';
+                html += '<div class="wall-frozen-content" style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 200px;">';
+                html += '<div class="wall-frozen-title">The Wall has frozen!</div>';
+                if (isHost()) {
+                    html += '<button class="btn btn-primary" onclick="resolveWallAfterFrozen()" style="font-size: 1.25rem; padding: 1rem 2rem; margin-top: 1.5rem;">Resolve the Wall</button>';
+                }
+                html += '</div>';
+                html += '</div>';
+            }
+
+            return html;
         }
 
         function renderVowels() {
