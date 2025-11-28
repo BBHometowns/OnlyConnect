@@ -1024,6 +1024,7 @@
         let timerElapsedWhenStopped = 0;
         let timerStopped = false;
         let timerStoppedOnClue = null;
+        let timerRemainingWhenStopped = null;
         let showCluesTimeUpModal = false;
 
         // Round 3 (Connecting Wall) state
@@ -1100,6 +1101,8 @@
             timerElapsedWhenStopped = gameState.timerElapsedWhenStopped;
             timerStartTime = gameState.timerStartTime;
             timerDuration = gameState.timerDuration;
+            timerStoppedOnClue = gameState.timerStoppedOnClue;
+            timerRemainingWhenStopped = gameState.timerRemainingWhenStopped;
             buzzedInPlayer = gameState.buzzedInPlayer;
             showCluesTimeUpModal = gameState.showCluesTimeUpModal;
             
@@ -1129,12 +1132,17 @@
                 clearInterval(timerInterval);
                 timerInterval = null;
             }
-            
-            // Only restart the timer if it should be running
-            if (timerStartTime && !timerStopped) {
+
+            // If timer is stopped, show the frozen time
+            if (timerStopped && timerRemainingWhenStopped !== null) {
+                updateTimerDisplay(timerRemainingWhenStopped);
+            } else if (timerStartTime && !timerStopped) {
+                // Only restart if timer should be running
                 const now = Date.now();
                 const elapsed = timerElapsedWhenStopped + (now - timerStartTime);
                 const remaining = Math.max(0, timerDuration - elapsed);
+                
+                updateTimerDisplay(remaining);
                 
                 if (remaining > 0) {
                     timerInterval = setInterval(updateTimer, 100);
@@ -1215,8 +1223,10 @@
                 // Timer state
                 timerStopped,
                 timerElapsedWhenStopped,
+                timerRemainingWhenStopped,
                 timerStartTime,
                 timerDuration,
+                timerStoppedOnClue,
                 
                 // Modal states
                 showCluesTimeUpModal,
@@ -1293,8 +1303,10 @@
             vowelsShowTimeUpModal = false;
         }
 
-        // Update the timer display and check if the timer has expired
         function updateTimer() {
+            // If timer is stopped, don't update the display
+            if (timerStopped) return;
+            
             if (!timerStartTime) return;
 
             const now = Date.now();
@@ -1303,7 +1315,7 @@
 
             updateTimerDisplay(remaining);
 
-            if (remaining <= 0 && !timerStopped) {  // Add check for timerStopped
+            if (remaining <= 0) {
                 clearInterval(timerInterval);
                 timerInterval = null;
 
@@ -1328,6 +1340,10 @@
             if (view === 'clues') {
                 showCluesTimeUpModal = true;
                 timerStopped = true;
+                // Lock the timer position when time expires
+                if (timerStoppedOnClue === null) {
+                    timerStoppedOnClue = Math.max(0, cluesRevealed - 1);
+                }
             } else if (view === 'wall') {
                 showWallFrozenModal = true;
                 timerStopped = true;
@@ -1387,25 +1403,39 @@
             }
         }
         
-    function stopTimer() {
-        if (timerInterval) {
-            clearInterval(timerInterval);
-            timerInterval = null;
+        function stopTimer() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+            
+            if (timerStartTime) {
+                // Calculate and store the remaining time when stopping
+                const elapsed = timerElapsedWhenStopped + (Date.now() - timerStartTime);
+                timerRemainingWhenStopped = Math.max(0, timerDuration - elapsed);
+                
+                // Calculate elapsed time when stopping
+                timerElapsedWhenStopped += Date.now() - timerStartTime;
+                timerStartTime = null;
+            }
+            
+            timerStopped = true;
+            
+            // Record which clue the timer stopped on
+            if (timerStoppedOnClue === null) {
+                timerStoppedOnClue = Math.max(0, cluesRevealed - 1);
+            }
+            
+            // Update the display with the frozen time
+            if (timerRemainingWhenStopped !== null) {
+                updateTimerDisplay(timerRemainingWhenStopped);
+            }
+            
+            // Sync the state if host
+            if (isHost()) {
+                syncGameState();
+            }
         }
-        
-        if (timerStartTime) {
-            // Calculate elapsed time when stopping
-            timerElapsedWhenStopped += Date.now() - timerStartTime;
-            timerStartTime = null;
-        }
-        
-        timerStopped = true;
-        
-        // Sync the state if host
-        if (isHost()) {
-            syncGameState();
-        }
-    }
 
         function resetTimer() {
             // Clear any running timer
@@ -1485,6 +1515,7 @@
             timerElapsedWhenStopped = 0;
             timerStartTime = null;
             timerStoppedOnClue = null;
+            timerElapsedWhenStopped = null;
             showCluesTimeUpModal = false;
             showTimeUpModal = false;
             showWallFrozenModal = false;
