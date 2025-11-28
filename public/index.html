@@ -1329,19 +1329,40 @@
         }
 
         function handleTimerExpiration() {
-            if (view === 'clues' && !showCluesTimeUpModal) {
+            if (!isHost()) return;
+            
+            // Set the appropriate modal flag based on current view
+            if (view === 'clues') {
                 showCluesTimeUpModal = true;
-                syncGameState();
-                render();  // Add render() to ensure host sees the modal
-            } else if (view === 'wall' && !showWallFrozenModal) {
+                timerStopped = true;
+            } else if (view === 'wall') {
                 showWallFrozenModal = true;
-                syncGameState();
-                render();
-            } else if (view === 'vowels' && !vowelsShowTimeUpModal) {
+                timerStopped = true;
+            } else if (view === 'vowels') {
                 vowelsShowTimeUpModal = true;
-                syncGameState();
-                render();
+                timerStopped = true;
             }
+            
+            syncGameState();
+            render();
+        }
+
+        function dismissTimeUpModal() {
+            if (!isHost()) return;
+            
+            // Clear the modal flag
+            showCluesTimeUpModal = false;
+            
+            // Timer is already stopped, just clear the modal
+            
+            // Broadcast the action to players
+            broadcastAction('dismissTimeUpModal');
+            
+            // Sync state to all clients
+            syncGameState();
+            
+            // Re-render
+            render();
         }
         
         function resetTimer() {
@@ -1543,26 +1564,6 @@
             
             broadcastAction('markIncorrect');
             syncGameState();
-            render();
-        }
-
-        function revealRemainingCluesFromTimeout() {
-            if (!isHost()) return;
-            
-            // Clear the modal and stop the timer, but don't auto-reveal
-            showCluesTimeUpModal = false;
-            timerStopped = true;
-            
-            // Clear buzzer if any
-            buzzedInPlayer = null;
-            
-            // Sync state first to update all clients
-            syncGameState();
-            
-            // Then broadcast for any additional handling
-            broadcastAction('revealRemainingCluesFromTimeout');
-            
-            // Render to update the view
             render();
         }
 
@@ -2442,12 +2443,14 @@
             // Timeout modal for Connections/Sequence rounds
             if (showCluesTimeUpModal) {
                 html += '<div class="time-up-modal">';
-                html += '<div class="time-up-content">';
+                html += '<div class="time-up-content" style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 200px;">';
                 html += '<div class="time-up-title">Time is Up</div>';
+                
                 // Only show button for host
                 if (isHost()) {
-                    html += '<button class="btn btn-primary" onclick="revealRemainingCluesFromTimeout()" style="font-size: 1.25rem; padding: 1rem 2rem;">Continue</button>';
+                    html += '<button class="btn btn-primary" onclick="dismissTimeUpModal()" style="font-size: 1.25rem; padding: 1rem 2rem; margin-top: 1.5rem;">Continue</button>';
                 }
+                
                 html += '</div>';
                 html += '</div>';
             }
@@ -2631,10 +2634,11 @@
             
             const buttonContainerClass = !isHost() ? 'buttons-container player-hidden' : 'buttons-container';
             html += `<div class="${buttonContainerClass}">`;
-            if (timerStopped && !vowelsAnswerRevealed && vowelsCategoryRevealed && !vowelsCategoryAnimating) {
+            // Only show Correct/Incorrect if timer stopped by buzzer (not by timeout)
+            if (timerStopped && !answerRevealed && buzzedInPlayer) {
                 html += '<div class="button-row">';
-                html += `<button class="btn btn-correct ${!isHost() ? 'disabled' : ''}" onclick="markVowelsCorrect()">Correct</button>`;
-                html += `<button class="btn btn-incorrect ${!isHost() ? 'disabled' : ''}" onclick="markVowelsIncorrect()">Incorrect</button>`;
+                html += `<button class="btn btn-correct ${!isHost() ? 'disabled' : ''}" onclick="markCorrect()">Correct</button>`;
+                html += `<button class="btn btn-incorrect ${!isHost() ? 'disabled' : ''}" onclick="markIncorrect()">Incorrect</button>`;
                 html += '</div>';
             } else if (vowelsAnswerRevealed) {
                 // After timeout OR after completing all clues
