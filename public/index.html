@@ -1130,24 +1130,15 @@
                 timerInterval = null;
             }
             
-            // Only restart the timer if it was running and not stopped
-            if (wasTimerRunning) {
-                // Calculate remaining time
+            // Only restart the timer if it should be running
+            if (timerStartTime && !timerStopped) {
                 const now = Date.now();
                 const elapsed = timerElapsedWhenStopped + (now - timerStartTime);
                 const remaining = Math.max(0, timerDuration - elapsed);
                 
-                // Update display immediately
-                updateTimerDisplay(remaining);
-                
-                // Restart timer if there's still time left
                 if (remaining > 0) {
                     timerInterval = setInterval(updateTimer, 100);
                 }
-            } else if (timerStopped) {
-                // If timer is stopped, just update the display with the remaining time
-                const remaining = Math.max(0, timerDuration - timerElapsedWhenStopped);
-                updateTimerDisplay(remaining);
             }
             
             render();
@@ -1312,7 +1303,7 @@
 
             updateTimerDisplay(remaining);
 
-            if (remaining <= 0) {
+            if (remaining <= 0 && !timerStopped) {  // Add check for timerStopped
                 clearInterval(timerInterval);
                 timerInterval = null;
 
@@ -1355,10 +1346,20 @@
             // Clear the modal flag
             showCluesTimeUpModal = false;
             
-            // Immediately sync state to all clients (this should update everyone)
+            // Make sure timer is fully stopped
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+            timerStopped = true;
+            
+            // Sync state to all clients FIRST
             syncGameState();
             
-            // Force a render on host
+            // Then broadcast the specific action
+            broadcastAction('dismissTimeUpModal');
+            
+            // Finally render for host
             render();
         }
         
