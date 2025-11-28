@@ -1163,8 +1163,11 @@
         socket.on('gameAction', (action) => {
             // Players only - host ignores its own broadcasts
             if (isHost()) return;
-            // Execute action from host
-            if (typeof window[action.type] === 'function') {
+            
+            if (action.type === 'revealRemainingCluesFromTimeout') {
+                // State will already be synced, just render
+                render();
+            } else if (typeof window[action.type] === 'function') {
                 window[action.type].apply(null, action.params || []);
             }
         });
@@ -1547,9 +1550,20 @@
             showCluesTimeUpModal = false;  // Clear the modal
             buzzedInPlayer = null;
             
-            // Broadcast BEFORE syncing to ensure players get the update
-            broadcastAction('revealRemainingCluesFromTimeout');
+            // First sync the state to update all clients
             syncGameState();
+            
+            // Then broadcast the action for players to execute
+            broadcastAction('revealRemainingCluesFromTimeout');
+            
+            // Finally render for the host
+            render();
+        }
+
+        // Player-side function to handle the broadcast
+        function revealRemainingCluesFromPlayerSide() {
+            // This will be called via gameAction broadcast
+            // The state sync from host will handle everything
             render();
         }
 
@@ -2424,7 +2438,10 @@
                 html += '<div class="time-up-modal">';
                 html += '<div class="time-up-content">';
                 html += '<div class="time-up-title">Time is Up</div>';
-                html += `<button class="btn btn-primary ${!isHost() ? 'disabled' : ''}" onclick="revealRemainingCluesFromTimeout()" style="font-size: 1.25rem; padding: 1rem 2rem;">Reveal the Remaining Clues</button>`;
+                // Only show button for host
+                if (isHost()) {
+                    html += '<button class="btn btn-primary" onclick="revealRemainingCluesFromTimeout()" style="font-size: 1.25rem; padding: 1rem 2rem;">Reveal the Remaining Clues</button>';
+                }
                 html += '</div>';
                 html += '</div>';
             }
