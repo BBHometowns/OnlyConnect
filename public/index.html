@@ -1277,23 +1277,31 @@
         }
 
         // Timer functions
-        function startTimer() {
-            if (timerStartTime === null) {
-                // Reset all modal states when starting a new timer
-                resetAllModals();
-                
-                // Reset timer state
-                timerStartTime = Date.now();
-                timerStopped = false;
-                timerElapsedWhenStopped = 0;
-                
-                // Start the timer
-                timerInterval = setInterval(updateTimer, 100);
-                
-                // Sync the state if host
-                if (isHost()) {
-                    syncGameState();
-                }
+        function startTimer(duration) {
+            // Don't start a new timer if one is stopped and we're revealing clues
+            if (timerStopped && view === 'clues' && !answerRevealed) {
+                return;
+            }
+            
+            // Clear any existing timer
+            if (timerInterval) {
+                clearInterval(timerInterval);
+            }
+            
+            // Initialize timer state
+            timerDuration = duration * 1000; // Convert to milliseconds
+            timerStartTime = Date.now();
+            timerElapsedWhenStopped = 0;
+            timerStopped = false;
+            timerStoppedOnClue = null;
+            timerRemainingWhenStopped = null;  // Add this line
+            
+            // Start the timer
+            timerInterval = setInterval(updateTimer, 100);
+            
+            // If host, sync the state
+            if (isHost()) {
+                syncGameState();
             }
         }
         
@@ -1325,12 +1333,19 @@
             }
         }
         
-        function updateTimerDisplay(remaining) {
-            const percentage = (remaining / timerDuration) * 100;
-            const timerBar = document.getElementById('timerBar');
-            const timerText = document.getElementById('timerText');
-            if (timerBar) timerBar.style.width = percentage + '%';
-            if (timerText) timerText.textContent = Math.ceil(remaining / 1000) + 's';
+        function updateTimerDisplay(remainingMs) {
+            if (timerStopped) {
+                console.log('WARNING: updateTimerDisplay called while timer stopped! Remaining:', remainingMs);
+            }
+            
+            const seconds = Math.ceil(remainingMs / 1000);
+            const displayText = seconds + 's';
+            
+            // Update all timer display elements
+            const timerElements = document.querySelectorAll('.timer-display');
+            timerElements.forEach(el => {
+                el.textContent = displayText;
+            });
         }
 
         function handleTimerExpiration() {
@@ -1443,6 +1458,11 @@
         }
 
         function resetTimer() {
+            // Don't reset if we're in the middle of a question with stopped timer
+            if (timerStopped && view === 'clues' && !answerRevealed) {
+                return;  // Exit early - don't reset while revealing clues
+            }
+            
             // Clear any running timer
             if (timerInterval) {
                 clearInterval(timerInterval);
@@ -1454,6 +1474,7 @@
             timerStopped = false;
             timerElapsedWhenStopped = 0;
             timerStoppedOnClue = null;
+            timerRemainingWhenStopped = null;  // Add this line
             
             // Reset modal states
             showTimeUpModal = false;
@@ -1553,25 +1574,20 @@
         }
 
         function revealClue(index) {
-            if (!isHost()) return;
+            if (!isHost() || index >= 4 || index < cluesRevealed) return;
             
-            const isSequence = currentRound === 1;
-            
-            if (index === cluesRevealed) {
-                if (isSequence && index === 3 && !timerStopped) {
-                    return;
+            // DON'T start timer if already stopped
+            if (!timerStopped) {
+                // Start timer on first clue reveal (only if not already stopped)
+                if (cluesRevealed === 0) {
+                    const duration = (currentRound === 1 || currentRound === 2) ? 60 : 180;
+                    startTimer(duration);
                 }
-                
-                cluesRevealed++;
-                
-                if (!timerStopped && cluesRevealed < 4) {
-                    startTimer();
-                }
-                
-                broadcastAction('revealClue', [index]);
-                syncGameState();
-                render();
             }
+            
+            cluesRevealed = index + 1;
+            syncGameState();
+            render();
         }
 
         function markCorrect() {
@@ -2430,7 +2446,7 @@
                     showTimerOnThisClue = isSequence ? (i === cluesRevealed - 1 && cluesRevealed > 0 && i < 3) : (i === cluesRevealed - 1 && cluesRevealed > 0);
                 }
                 
-                if (showTimerOnThisClue) {
+                if (showTimerOnThisClue && (timerStartTime || timerStopped)) {
                     html += `<div class="points-label">${pointsValues[i]} Point${pointsValues[i] !== 1 ? 's' : ''}</div>`;
                     html += `<div class="timer-bar-container"><div id="timerBar" class="timer-bar" style="width: 100%;"></div><div id="timerText" class="timer-text">60s</div></div>`;
                 } else {
