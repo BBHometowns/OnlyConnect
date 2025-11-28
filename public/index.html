@@ -1326,19 +1326,23 @@
             }
         }
         
-        function updateTimerDisplay(remainingMs) {
-            if (timerStopped) {
-                console.log('WARNING: updateTimerDisplay called while timer stopped! Remaining:', remainingMs);
+        function updateTimerDisplay(remaining) {
+            const percentage = (remaining / timerDuration) * 100;
+            const seconds = Math.ceil(remaining / 1000);
+            
+            // Update all timer bars and texts (there might be multiple)
+            for (let i = 0; i < 4; i++) {
+                const timerBar = document.getElementById(`timerBar-${i}`);
+                const timerText = document.getElementById(`timerText-${i}`);
+                if (timerBar) timerBar.style.width = percentage + '%';
+                if (timerText) timerText.textContent = seconds + 's';
             }
             
-            const seconds = Math.ceil(remainingMs / 1000);
-            const displayText = seconds + 's';
-            
-            // Update all timer display elements
-            const timerElements = document.querySelectorAll('.timer-display');
-            timerElements.forEach(el => {
-                el.textContent = displayText;
-            });
+            // Also update the non-indexed ones for other rounds
+            const mainTimerBar = document.getElementById('timerBar');
+            const mainTimerText = document.getElementById('timerText');
+            if (mainTimerBar) mainTimerBar.style.width = percentage + '%';
+            if (mainTimerText) mainTimerText.textContent = seconds + 's';
         }
 
         function handleTimerExpiration() {
@@ -2448,7 +2452,7 @@
                 
                 if (showTimerOnThisClue) {
                     html += `<div class="points-label">${pointsValues[i]} Point${pointsValues[i] !== 1 ? 's' : ''}</div>`;
-                    html += `<div class="timer-bar-container"><div id="timerBar" class="timer-bar" style="width: 100%;"></div><div id="timerText" class="timer-text">60s</div></div>`;
+                    html += `<div class="timer-bar-container"><div class="timer-bar" id="timerBar-${i}" style="width: 100%;"></div><div class="timer-text" id="timerText-${i}">60s</div></div>`;
                 } else {
                     html += '<div class="timer-spacer"></div>';
                 }
