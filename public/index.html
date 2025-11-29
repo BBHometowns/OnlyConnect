@@ -1743,7 +1743,10 @@
                 setTimeout(() => {
                     vowelsCategoryAnimating = false;
                     vowelsClueRevealed = true;
-                    startTimer();
+                    // Only start timer if it hasn't been started yet
+                    if (timerStartTime === null) {
+                        startTimer();
+                    }
                     
                     broadcastAction('revealCategoryAndStartTimer');
                     syncGameState();
@@ -1809,10 +1812,9 @@
                 timerStopped = false;
                 buzzedInPlayer = null;  // Clear buzzer for next clue
                 
-                if (timerStartTime !== null) {
-                    timerStartTime = Date.now() - timerElapsedWhenStopped;
+                // Resume timer without resetting
+                if (timerInterval === null && timerStartTime !== null && !timerStopped) {
                     timerInterval = setInterval(updateTimer, 100);
-                    timerStopped = false;
                 }
                 
                 broadcastAction('nextVowelsClue');
@@ -1852,10 +1854,10 @@
                     vowelsCategoryAnimating = false;
                     vowelsClueRevealed = true;
                     
-                    if (timerStartTime !== null && timerStopped) {
-                        timerStartTime = Date.now() - timerElapsedWhenStopped;
+                    // Don't reset the timer - just continue from where it was
+                    if (timerInterval === null && timerStartTime !== null) {
+                        // Resume the timer if it was running
                         timerInterval = setInterval(updateTimer, 100);
-                        timerStopped = false;
                     }
                     
                     broadcastAction('nextVowelsCategory');
@@ -1997,7 +1999,19 @@
                 selectedTiles.forEach(i => {
                     wallTiles[i].solved = true;
                     wallTiles[i].solvedGroupIndex = solvedGroups.length;
+                    wallTiles[i].justSolved = true; // Mark as just solved
                 });
+
+                // After a brief moment, remove the justSolved flag
+                setTimeout(() => {
+                    wallTiles.forEach(tile => {
+                        if (tile.justSolved) {
+                            delete tile.justSolved;
+                        }
+                    });
+                    syncGameState();
+                    render();
+                }, 50);
                 
                 solvedGroups.push({
                     items: groupItems,
