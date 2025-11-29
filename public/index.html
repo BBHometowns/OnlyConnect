@@ -1419,11 +1419,6 @@
         }
         
         function stopTimer() {
-            // Don't stop timer during vowels round between clues
-            if (view === 'vowels' && !vowelsShowTimeUpModal) {
-                return;  // Don't actually stop the timer in vowels round
-            }
-
             // First, capture the remaining time BEFORE clearing anything
             if (timerStartTime && timerRemainingWhenStopped === null) {
                 const elapsed = timerElapsedWhenStopped + (Date.now() - timerStartTime);
@@ -1760,11 +1755,32 @@
             }
         }
 
-        function markVowelsCorrect() {
+        function markVowelsIncorrect() {
             if (!isHost()) return;
             
-            score += 1;
             vowelsAnswerRevealed = true;
+            
+            // Resume the timer for vowels round
+            if (timerStopped && timerRemainingWhenStopped !== null) {
+                timerStopped = false;
+                timerStartTime = Date.now();
+                timerElapsedWhenStopped = timerDuration - (timerRemainingWhenStopped * 1);
+                
+                if (!timerInterval) {
+                    timerInterval = setInterval(updateTimer, 100);
+                }
+            }
+            
+            // Resume the timer for vowels round
+            if (timerStopped && timerRemainingWhenStopped !== null) {
+                timerStopped = false;
+                timerStartTime = Date.now();
+                timerElapsedWhenStopped = timerDuration - (timerRemainingWhenStopped * 1);
+                
+                if (!timerInterval) {
+                    timerInterval = setInterval(updateTimer, 100);
+                }
+            }
             
             setTimeout(() => {
                 const clueElement = document.querySelector('.vowels-clue-text');
@@ -1815,18 +1831,18 @@
                 vowelsClueRevealed = true;
                 vowelsAnswerRevealed = false;
                 buzzedInPlayer = null;  // Clear buzzer for next clue
-
-                // Don't reset timerStopped here - let it continue running
-                // The timer should keep going through the entire round
+                
+                // Timer continues running automatically after markCorrect/Incorrect resumed it
                 
                 broadcastAction('nextVowelsClue');
                 syncGameState();
                 render();
             } else {
+                // End of category
                 stopTimer();
                 vowelsClueRevealed = false;
                 vowelsAnswerRevealed = false;
-                buzzedInPlayer = null;  // Clear buzzer
+                buzzedInPlayer = null;
                 
                 syncGameState();
                 render();
@@ -2814,6 +2830,44 @@
                 ${setupModalHtml}
             `;
             
+            // After innerHTML is set, if we're in wall view
+            if (view === 'wall' && wallPhase === 'solving') {
+                // Store initial positions
+                const tiles = document.querySelectorAll('.wall-tile');
+                const initialPositions = new Map();
+                
+                tiles.forEach(tile => {
+                    const rect = tile.getBoundingClientRect();
+                    const id = tile.getAttribute('data-tile-id');
+                    initialPositions.set(id, { top: rect.top, left: rect.left });
+                });
+                
+                // On next frame, check if positions changed
+                requestAnimationFrame(() => {
+                    tiles.forEach(tile => {
+                        const id = tile.getAttribute('data-tile-id');
+                        const oldPos = initialPositions.get(id);
+                        const newRect = tile.getBoundingClientRect();
+                        
+                        if (oldPos && (oldPos.top !== newRect.top || oldPos.left !== newRect.left)) {
+                            // Position changed, animate from old to new
+                            const deltaX = oldPos.left - newRect.left;
+                            const deltaY = oldPos.top - newRect.top;
+                            
+                            tile.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+                            tile.style.transition = 'none';
+                            
+                            // Force reflow
+                            tile.offsetHeight;
+                            
+                            // Animate to new position
+                            tile.style.transition = 'transform 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+                            tile.style.transform = '';
+                        }
+                    });
+                });
+            }
+
             if (view === 'clues' && timerStartTime !== null) updateTimer();
             if (view === 'wall' && wallPhase === 'solving' && timerStartTime !== null) updateTimer();
             if (view === 'vowels' && timerStartTime !== null) updateTimer();
