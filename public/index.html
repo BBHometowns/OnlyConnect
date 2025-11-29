@@ -1755,28 +1755,17 @@
             }
         }
 
-        function markVowelsIncorrect() {
+        function markVowelsCorrect() {
             if (!isHost()) return;
             
+            score += 1;
             vowelsAnswerRevealed = true;
             
-            // Resume the timer for vowels round
-            if (timerStopped && timerRemainingWhenStopped !== null) {
+            // Restart timer from where it stopped
+            if (timerStopped) {
                 timerStopped = false;
                 timerStartTime = Date.now();
-                timerElapsedWhenStopped = timerDuration - (timerRemainingWhenStopped * 1);
-                
-                if (!timerInterval) {
-                    timerInterval = setInterval(updateTimer, 100);
-                }
-            }
-            
-            // Resume the timer for vowels round
-            if (timerStopped && timerRemainingWhenStopped !== null) {
-                timerStopped = false;
-                timerStartTime = Date.now();
-                timerElapsedWhenStopped = timerDuration - (timerRemainingWhenStopped * 1);
-                
+                // timerElapsedWhenStopped already has the right value
                 if (!timerInterval) {
                     timerInterval = setInterval(updateTimer, 100);
                 }
@@ -1803,6 +1792,16 @@
             if (!isHost()) return;
             
             vowelsAnswerRevealed = true;
+            
+            // Restart timer from where it stopped
+            if (timerStopped) {
+                timerStopped = false;
+                timerStartTime = Date.now();
+                // timerElapsedWhenStopped already has the right value
+                if (!timerInterval) {
+                    timerInterval = setInterval(updateTimer, 100);
+                }
+            }
             
             setTimeout(() => {
                 const clueElement = document.querySelector('.vowels-clue-text');
@@ -2738,7 +2737,7 @@
             const buttonContainerClass = !isHost() ? 'buttons-container player-hidden' : 'buttons-container';
             html += `<div class="${buttonContainerClass}">`;
             // Show Correct/Incorrect buttons when timer is stopped and answer not revealed
-            if (timerStopped && !vowelsAnswerRevealed && vowelsCategoryRevealed && !vowelsCategoryAnimating) {
+            if (timerStopped && !vowelsAnswerRevealed && buzzedInPlayer) {
                 html += '<div class="button-row">';
                 html += `<button class="btn btn-correct ${!isHost() ? 'disabled' : ''}" onclick="markVowelsCorrect()">Correct</button>`;
                 html += `<button class="btn btn-incorrect ${!isHost() ? 'disabled' : ''}" onclick="markVowelsIncorrect()">Incorrect</button>`;
