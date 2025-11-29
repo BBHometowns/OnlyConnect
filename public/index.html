@@ -1032,13 +1032,12 @@
         let selectedTiles = [];
         let solvedGroups = [];
         let wallLives = 3;
-        let wallLocked = false;
+        let wallPhase = 'setup'; // 'setup', 'solving', 'guessing', 'complete'
+        let connectionGuesses = {};
         let wallTimerStarted = false;
-        let wallPhase = 'solving';
-        let connectionGuesses = [];
-        let wallTimerReady = false;
-        let showTimeUpModal = false;
+        let showWallTimeUpModal = false;
         let showWallFrozenModal = false;
+        let wallAnimations = new Map(); // Track tile positions for animations
 
         // Round 4 (Missing Vowels) state
         let vowelsCurrentCategory = 0;
@@ -1930,310 +1929,402 @@
         function initializeWall() {
             const wallData = gameData.round3[0];
             
-            let allItems = [];
+            // Create tiles from groups
+            let allTiles = [];
             wallData.groups.forEach((group, groupIndex) => {
                 group.items.forEach(item => {
-                    allItems.push({ text: item, groupIndex: groupIndex });
+                    allTiles.push({
+                        id: Math.random().toString(36).substr(2, 9), // Unique ID for tracking
+                        text: item,
+                        groupIndex: groupIndex,
+                        solved: false,
+                        position: null
+                    });
                 });
             });
             
-            wallTiles = shuffleArray(allItems);
+            // Shuffle and assign positions
+            wallTiles = shuffleArray(allTiles);
+            wallTiles.forEach((tile, index) => {
+                tile.position = index;
+            });
+            
+            // Reset state
             selectedTiles = [];
             solvedGroups = [];
             wallLives = 3;
-            wallLocked = false;
-            wallPhase = 'solving';
-            connectionGuesses = [];
-            wallTimerReady = false;
+            wallPhase = 'setup';
+            connectionGuesses = {};
+            wallTimerStarted = false;
+            showWallTimeUpModal = false;
+            showWallFrozenModal = false;
+            wallAnimations.clear();
             
+            // Setup timer
             resetTimer();
-            timerDuration = 180000;
+            timerDuration = 180000; // 3 minutes
         }
 
         function startWallTimer() {
-            if (!isHost()) return;
+            if (!isHost() || wallTimerStarted) return;
             
-            if (!wallTimerReady) {
-                wallTimerReady = true;
-                startTimer();
-                
-                broadcastAction('startWallTimer');
-                syncGameState();
-                render();
-            }
+            wallTimerStarted = true;
+            wallPhase = 'solving';
+            startTimer();
+            
+            broadcastAction('startWallTimer');
+            syncGameState();
+            render();
         }
 
-        function toggleTile(index) {
-            // Players send action to host
-            if (isPlayer() && wallPhase === 'solving' && wallTimerReady) {
-                socket.emit('playerWallAction', { type: 'toggleTile', index: index });
+        function handleWallTimerExpired() {
+            if (!isHost()) return;
+            
+            showWallTimeUpModal = true;
+            timerStopped = true;
+            
+            syncGameState();
+            render();
+        }
+
+        function toggleTile(tileId) {
+            // Players send request to host
+            if (isPlayer() && wallPhase === 'solving') {
+                socket.emit('playerWallAction', { type: 'toggleTile', tileId });
                 return;
             }
             
-            // Host processes the tile toggle (from wall action)
-            if (!isHost()) return;
-            if (wallPhase !== 'solving') return;
-            if (timerStopped) return;
+            // Host processes the toggle
+            if (!isHost() || wallPhase !== 'solving' || timerStopped) return;
             
-            const tile = wallTiles[index];
-            if (tile.solved) return;
+            const tile = wallTiles.find(t => t.id === tileId);
+            if (!tile || tile.solved) return;
             
-            const selectedIndex = selectedTiles.indexOf(index);
+            const selectedIndex = selectedTiles.findIndex(id => id === tileId);
             
             if (selectedIndex > -1) {
+                // Deselect
                 selectedTiles.splice(selectedIndex, 1);
-            } else {
-                if (selectedTiles.length < 4) {
-                    selectedTiles.push(index);
-                    
-                    if (selectedTiles.length === 4) {
-                        setTimeout(() => {
-                            checkGroup();
-                        }, 300);
-                    }
+            } else if (selectedTiles.length < 4) {
+                // Select
+                selectedTiles.push(tileId);
+                
+                // Auto-check when 4 selected
+                if (selectedTiles.length === 4) {
+                    setTimeout(checkGroup, 300);
                 }
             }
             
-            // Broadcast to all players
-            broadcastAction('syncWallState');
             syncGameState();
             render();
         }
 
         function checkGroup() {
-            if (!isHost()) return;
+            if (!isHost() || selectedTiles.length !== 4) return;
             
-            if (selectedTiles.length !== 4) return;
+            // Get the group indices of selected tiles
+            const selectedGroups = selectedTiles.map(id => {
+                const tile = wallTiles.find(t => t.id === id);
+                return tile.groupIndex;
+            });
             
-            const selectedGroupIndices = selectedTiles.map(i => wallTiles[i].groupIndex);
-            const firstGroup = selectedGroupIndices[0];
-            const allSame = selectedGroupIndices.every(g => g === firstGroup);
+            // Check if all same group
+            const isCorrect = selectedGroups.every(g => g === selectedGroups[0]);
             
-            if (allSame) {
-                const wallData = gameData.round3[0];
-                const groupItems = selectedTiles.map(i => wallTiles[i].text).sort();
-                
-                selectedTiles.forEach(i => {
-                    wallTiles[i].solved = true;
-                    wallTiles[i].solvedGroupIndex = solvedGroups.length;
-                    wallTiles[i].justSolved = true; // Mark as just solved
-                });
-
-                // After a brief moment, remove the justSolved flag
-                setTimeout(() => {
-                    wallTiles.forEach(tile => {
-                        if (tile.justSolved) {
-                            delete tile.justSolved;
-                        }
-                    });
-                    syncGameState();
-                    render();
-                }, 50);
-                
-                solvedGroups.push({
-                    items: groupItems,
-                    connection: wallData.groups[firstGroup].connection,
-                    groupIndex: firstGroup,
-                    solvedGroupIndex: solvedGroups.length
-                });
-                
-                selectedTiles = [];
-                score += 1;
-                
-                if (solvedGroups.length === 3) {
-                    // Stop the timer when wall is solved
-                    if (timerInterval) {
-                        clearInterval(timerInterval);
-                        timerInterval = null;
-                        timerStopped = true;
-                    }
-                    setTimeout(() => {
-                        autoSolveLastGroup();
-                        setTimeout(() => {
-                            endWallSolving();
-                        }, 1000);
-                    }, 800);
-                } else if (solvedGroups.length === 4) {
-                    setTimeout(() => {
-                        endWallSolving();
-                    }, 1000);
-                }
+            if (isCorrect) {
+                handleCorrectGroup();
             } else {
-                const remainingGroups = 4 - solvedGroups.length;
-                selectedTiles = [];
+                handleIncorrectGroup();
+            }
+        }
+
+        function handleCorrectGroup() {
+            const groupIndex = wallTiles.find(t => t.id === selectedTiles[0]).groupIndex;
+            const wallData = gameData.round3[0];
+            
+            // Mark tiles as solved
+            selectedTiles.forEach(tileId => {
+                const tile = wallTiles.find(t => t.id === tileId);
+                tile.solved = true;
+                tile.solvedGroupIndex = solvedGroups.length;
+            });
+            
+            // Add to solved groups
+            solvedGroups.push({
+                tiles: selectedTiles.slice(),
+                groupIndex: groupIndex,
+                connection: wallData.groups[groupIndex].connection
+            });
+            
+            // Clear selection
+            selectedTiles = [];
+            score += 1;
+            
+            // Rearrange tiles with animation
+            rearrangeTiles();
+            
+            // Check if wall complete
+            if (solvedGroups.length === 3) {
+                // Auto-solve last group
+                setTimeout(autoSolveLastGroup, 1000);
+            }
+            
+            syncGameState();
+            render();
+        }
+
+        function handleIncorrectGroup() {
+            const remainingGroups = 4 - solvedGroups.length;
+            
+            if (remainingGroups === 2) {
+                wallLives--;
                 
-                if (remainingGroups === 2) {
-                    wallLives--;
-                    
-                    if (wallLives === 0) {
-                        if (timerInterval) {
-                            clearInterval(timerInterval);
-                            timerInterval = null;
-                            timerStopped = true;
-                        }
-                        showWallFrozenModal = true;
-                    }
+                if (wallLives === 0) {
+                    // Wall frozen
+                    showWallFrozenModal = true;
+                    stopTimer();
                 }
             }
             
-            broadcastAction('checkGroup');
+            selectedTiles = [];
             syncGameState();
             render();
+        }
+
+        function rearrangeTiles() {
+            // Store old positions for animation
+            wallTiles.forEach(tile => {
+                const element = document.querySelector(`[data-tile-id="${tile.id}"]`);
+                if (element) {
+                    const rect = element.getBoundingClientRect();
+                    wallAnimations.set(tile.id, { oldTop: rect.top, oldLeft: rect.left });
+                }
+            });
+            
+            // Calculate new positions
+            let newPosition = 0;
+            
+            // First, position solved groups
+            solvedGroups.forEach((group, groupIdx) => {
+                group.tiles.forEach(tileId => {
+                    const tile = wallTiles.find(t => t.id === tileId);
+                    tile.position = newPosition++;
+                });
+            });
+            
+            // Then position unsolved tiles
+            wallTiles.forEach(tile => {
+                if (!tile.solved) {
+                    tile.position = newPosition++;
+                }
+            });
         }
 
         function autoSolveLastGroup() {
             const wallData = gameData.round3[0];
+            const unsolvedTiles = wallTiles.filter(t => !t.solved);
             
-            for (let groupIndex = 0; groupIndex < 4; groupIndex++) {
-                const alreadySolved = solvedGroups.some(g => g.groupIndex === groupIndex);
+            if (unsolvedTiles.length === 4) {
+                const groupIndex = unsolvedTiles[0].groupIndex;
                 
-                if (!alreadySolved) {
-                    const groupTiles = [];
-                    
-                    wallTiles.forEach((tile, index) => {
-                        if (tile.groupIndex === groupIndex && !tile.solved) {
-                            tile.solved = true;
-                            tile.solvedGroupIndex = solvedGroups.length;
-                            groupTiles.push(tile.text);
-                        }
-                    });
-                    
-                    if (groupTiles.length > 0) {
-                        solvedGroups.push({
-                            items: groupTiles.sort(),
-                            connection: wallData.groups[groupIndex].connection,
-                            groupIndex: groupIndex,
-                            solvedGroupIndex: solvedGroups.length
-                        });
-                        
-                        score += 1;
-                    }
-                    break;
-                }
+                unsolvedTiles.forEach(tile => {
+                    tile.solved = true;
+                    tile.solvedGroupIndex = solvedGroups.length;
+                });
+                
+                solvedGroups.push({
+                    tiles: unsolvedTiles.map(t => t.id),
+                    groupIndex: groupIndex,
+                    connection: wallData.groups[groupIndex].connection
+                });
+                
+                score += 1;
+                rearrangeTiles();
             }
+            
+            // Move to guessing phase
+            setTimeout(() => {
+                wallPhase = 'guessing';
+                stopTimer();
+                syncGameState();
+                render();
+            }, 1000);
+        }
+        
+        function renderWall() {
+            let html = '<div class="wall-header">';
+            
+            // Back button (hidden during solving)
+            if (wallPhase === 'setup') {
+                html += `<button class="back-btn ${!isHost() ? 'disabled' : ''}" onclick="backToRounds()">← Back to Rounds</button>`;
+            } else {
+                html += '<div style="width: 150px;"></div>';
+            }
+            
+            // Lives display
+            const remainingGroups = 4 - solvedGroups.length;
+            if (remainingGroups === 2 && wallPhase === 'solving') {
+                html += `<div class="lives-display">Lives: ${'❤️'.repeat(wallLives)}${'🖤'.repeat(3 - wallLives)}</div>`;
+            }
+            
+            html += '</div>';
+            
+            // Wall grid
+            html += '<div class="wall-grid">';
+            
+            // Render tiles
+            wallTiles.forEach(tile => {
+                const row = Math.floor(tile.position / 4);
+                const col = tile.position % 4;
+                const top = row * 112; // 100px tile + 12px gap
+                const left = `${col * 25}%`;
+                
+                let classes = 'wall-tile';
+                if (tile.solved) {
+                    classes += ` solved group-${tile.solvedGroupIndex}`;
+                }
+                if (selectedTiles.includes(tile.id)) {
+                    classes += ' selected';
+                }
+                if (wallPhase === 'setup') {
+                    classes += ' hidden-text';
+                }
+                
+                const canClick = (isPlayer() && wallPhase === 'solving' && !tile.solved);
+                const onclick = canClick ? `onclick="toggleTile('${tile.id}')"` : '';
+                
+                html += `<button class="${classes}" ${onclick} style="top: ${top}px; left: ${left}; width: calc(25% - 9px);" data-tile-id="${tile.id}">${tile.text}</button>`;
+            });
+            
+            // Connection displays for guessing phase
+            if (wallPhase === 'guessing') {
+                solvedGroups.forEach((group, idx) => {
+                    const row = idx;
+                    const top = row * 112 + 50;
+                    
+                    if (connectionGuesses[idx]) {
+                        html += `<div class="connection-display fade-in" style="top: ${top}px; opacity: 1;">${group.connection}</div>`;
+                    } else if (isHost()) {
+                        const buttonsTop = row * 112 + 27;
+                        html += `<div style="position: absolute; right: -60px; top: ${buttonsTop}px;">`;
+                        html += `<button class="guess-btn correct" onclick="guessConnection(${idx}, true)">✓</button>`;
+                        html += `<button class="guess-btn incorrect" onclick="guessConnection(${idx}, false)">✗</button>`;
+                        html += '</div>';
+                    }
+                });
+            }
+            
+            html += '</div>';
+            
+            // Timer section
+            if (wallPhase === 'setup' && isHost()) {
+                html += '<div style="text-align: center; margin-top: 2rem;">';
+                html += '<button class="btn btn-primary" onclick="startWallTimer()">Start Timer</button>';
+                html += '</div>';
+            } else if (wallPhase === 'solving') {
+                html += '<div class="timer-bar-container" style="margin-top: 1rem;">';
+                html += '<div id="timerBar" class="timer-bar"></div>';
+                html += '<div id="timerText" class="timer-text">180s</div>';
+                html += '</div>';
+            }
+            
+            // Continue button for guessing complete
+            if (wallPhase === 'guessing' && Object.keys(connectionGuesses).length === solvedGroups.length && isHost()) {
+                html += '<div style="text-align: center; margin-top: 2rem;">';
+                html += '<button class="btn btn-primary" onclick="selectRound(3)">Continue to Missing Vowels</button>';
+                html += '</div>';
+            }
+            
+            // Modals
+            if (showWallTimeUpModal) {
+                html += renderWallTimeUpModal();
+            }
+            if (showWallFrozenModal) {
+                html += renderWallFrozenModal();
+            }
+            
+            return html;
         }
 
-        function endWallSolving() {
+        function guessConnection(groupIndex, isCorrect) {
+            if (!isHost()) return;
+            
+            connectionGuesses[groupIndex] = isCorrect;
+            if (isCorrect) score += 1;
+            
+            // Check for bonus
+            if (Object.keys(connectionGuesses).length === 4) {
+                const allCorrect = Object.values(connectionGuesses).every(v => v);
+                const allFound = solvedGroups.every(g => !g.autoSolved);
+                
+                if (allCorrect && allFound) {
+                    score += 2; // Bonus points
+                }
+            }
+            
+            syncGameState();
+            render();
+        }
+
+        function renderWallTimeUpModal() {
+            let html = '<div class="time-up-modal">';
+            html += '<div class="time-up-content">';
+            html += '<div class="time-up-title">Time is Up</div>';
+            if (isHost()) {
+                html += '<button class="btn btn-primary" onclick="resolveWallTimeout()">Resolve Wall</button>';
+            }
+            html += '</div></div>';
+            return html;
+        }
+
+        function renderWallFrozenModal() {
+            let html = '<div class="wall-frozen-modal">';
+            html += '<div class="wall-frozen-content">';
+            html += '<div class="wall-frozen-title">The Wall has Frozen!</div>';
+            if (isHost()) {
+                html += '<button class="btn btn-primary" onclick="resolveWallFrozen()">Resolve Wall</button>';
+            }
+            html += '</div></div>';
+            return html;
+        }
+
+        function resolveWallTimeout() {
+            if (!isHost()) return;
+            showWallTimeUpModal = false;
+            autoSolveRemaining();
+        }
+
+        function resolveWallFrozen() {
+            if (!isHost()) return;
+            showWallFrozenModal = false;
+            autoSolveRemaining();
+        }
+
+        function autoSolveRemaining() {
+            // Auto-solve all remaining groups
+            const wallData = gameData.round3[0];
+            
+            for (let g = 0; g < 4; g++) {
+                if (!solvedGroups.some(sg => sg.groupIndex === g)) {
+                    const tiles = wallTiles.filter(t => t.groupIndex === g && !t.solved);
+                    tiles.forEach(t => {
+                        t.solved = true;
+                        t.solvedGroupIndex = solvedGroups.length;
+                    });
+                    
+                    solvedGroups.push({
+                        tiles: tiles.map(t => t.id),
+                        groupIndex: g,
+                        connection: wallData.groups[g].connection,
+                        autoSolved: true
+                    });
+                }
+            }
+            
+            rearrangeTiles();
             wallPhase = 'guessing';
             syncGameState();
             render();
-        }
-
-        function autoSolveRemainingGroups() {
-            const wallData = gameData.round3[0];
-            
-            for (let groupIndex = 0; groupIndex < 4; groupIndex++) {
-                const alreadySolved = solvedGroups.some(g => g.groupIndex === groupIndex);
-                
-                if (!alreadySolved) {
-                    const groupTiles = [];
-                    
-                    wallTiles.forEach((tile, index) => {
-                        if (tile.groupIndex === groupIndex && !tile.solved) {
-                            tile.solved = true;
-                            tile.solvedGroupIndex = solvedGroups.length;
-                            groupTiles.push(tile.text);
-                        }
-                    });
-                    
-                    if (groupTiles.length > 0) {
-                        solvedGroups.push({
-                            items: groupTiles.sort(),
-                            connection: wallData.groups[groupIndex].connection,
-                            groupIndex: groupIndex,
-                            solvedGroupIndex: solvedGroups.length,
-                            autoSolved: true
-                        });
-                    }
-                }
-            }
-        }
-
-        function resolveWallAfterTimeout() {
-            if (!isHost()) return;
-            
-            showTimeUpModal = false;
-            
-            // Sync and render to clear modal first
-            syncGameState();
-            render();
-            
-            // Small delay to allow render, then auto-solve
-            setTimeout(() => {
-                autoSolveRemainingGroups();
-                
-                // Another delay for animations
-                setTimeout(() => {
-                    wallPhase = 'guessing';
-                    broadcastAction('resolveWallAfterTimeout');
-                    syncGameState();
-                    render();
-                }, 1000);
-            }, 100);
-        }
-
-        function resolveWallAfterFrozen() {
-            if (!isHost()) return;
-            
-            showWallFrozenModal = false;
-            
-            // Sync and render to clear modal first
-            syncGameState();
-            render();
-            
-            // Small delay to allow render, then auto-solve
-            setTimeout(() => {
-                autoSolveRemainingGroups();
-                
-                // Another delay for animations
-                setTimeout(() => {
-                    wallPhase = 'guessing';
-                    broadcastAction('resolveWallAfterFrozen');
-                    syncGameState();
-                    render();
-                }, 1000);
-            }, 100);
-        }
-
-        function guessConnection(groupIndex, correct) {
-            if (!isHost()) return;
-            
-            if (correct) {
-                score += 1;
-            }
-            
-            connectionGuesses.forEach(guess => {
-                if (guess && guess.justRevealed) {
-                    guess.justRevealed = false;
-                }
-            });
-            
-            connectionGuesses[groupIndex] = {
-                correct: correct,
-                revealed: true,
-                justRevealed: true
-            };
-            
-            const allGuessed = solvedGroups.every((_, idx) => connectionGuesses[idx]);
-            
-            if (allGuessed) {
-                const allFoundInTime = solvedGroups.every(g => !g.autoSolved);
-                const allGuessedCorrect = connectionGuesses.every(g => g.correct);
-                
-                if (allFoundInTime && allGuessedCorrect) {
-                    score += 2;
-                }
-            }
-            
-            broadcastAction('guessConnection', [groupIndex, correct]);
-            syncGameState();
-            render();
-            
-            setTimeout(() => {
-                if (connectionGuesses[groupIndex]) {
-                    connectionGuesses[groupIndex].justRevealed = false;
-                }
-            }, 1000);
         }
 
         function shuffleArray(array) {
