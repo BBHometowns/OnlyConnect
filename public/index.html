@@ -1419,6 +1419,11 @@
         }
         
         function stopTimer() {
+            // Don't stop timer during vowels round between clues
+            if (view === 'vowels' && !vowelsShowTimeUpModal) {
+                return;  // Don't actually stop the timer in vowels round
+            }
+
             // First, capture the remaining time BEFORE clearing anything
             if (timerStartTime && timerRemainingWhenStopped === null) {
                 const elapsed = timerElapsedWhenStopped + (Date.now() - timerStartTime);
@@ -1809,13 +1814,10 @@
                 vowelsCurrentClue++;
                 vowelsClueRevealed = true;
                 vowelsAnswerRevealed = false;
-                timerStopped = false;
                 buzzedInPlayer = null;  // Clear buzzer for next clue
-                
-                // Resume timer without resetting
-                if (timerInterval === null && timerStartTime !== null && !timerStopped) {
-                    timerInterval = setInterval(updateTimer, 100);
-                }
+
+                // Don't reset timerStopped here - let it continue running
+                // The timer should keep going through the entire round
                 
                 broadcastAction('nextVowelsClue');
                 syncGameState();
@@ -2492,8 +2494,11 @@
                 } else {
                     html += `<div style="font-size: 1.25rem; font-weight: bold;">${answerText}</div>`;
                 }
+            } else if (isHost() && cluesRevealed > 0) {
+                // Show answer to host only, with transparency
+                const displayAnswer = isSequence ? subtitle : answerText;
+                html += `<div style="font-size: 1.25rem; font-weight: bold; opacity: 0.3; color: #94a3b8;">${displayAnswer}</div>`;
             }
-            html += '</div>';
             html += '</div>';
             
             const buttonContainerClass = !isHost() ? 'buttons-container player-hidden' : 'buttons-container';
@@ -2604,6 +2609,7 @@
                 const style = `top: ${topPx}px; left: ${leftCalc}; width: ${tileWidth};`;
                 
                 html += `<button class="${classes}" ${onclick} style="${style}" data-tile-id="${index}">${tile.text}</button>`;
+                html += `<button class="${classes}" ${onclick} style="${style}" data-tile-id="${index}" data-tile-text="${tile.text}">${tile.text}</button>`;
             });
             
             if (wallPhase === 'guessing') {
@@ -2705,6 +2711,10 @@
                     html += createAnimatedClueText(clue.withoutVowels, clue.answer, true);
                 } else {
                     html += `<div class="vowels-clue-text">${clue.withoutVowels}</div>`;
+                    // Show answer to host only with transparency
+                    if (isHost()) {
+                        html += `<div style="font-size: 1.5rem; opacity: 0.3; color: #94a3b8; margin-top: 1rem;">${clue.answer}</div>`;
+                    }
                 }
             }
             html += '</div>';
