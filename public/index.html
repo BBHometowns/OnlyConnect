@@ -1516,7 +1516,12 @@
                 view = 'vowels';
                 currentCategoryName = "Missing Vowels";
             } else {
+                // For rounds 0 (Connections) and 1 (Sequences)
                 view = 'questions';
+                // Reset question state
+                currentQuestion = null;
+                cluesRevealed = 0;
+                answerRevealed = false;
             }
             
             broadcastAction('selectRound', [roundIndex]);
@@ -2714,7 +2719,6 @@
                 const onclick = canClick ? `onclick="toggleTile(${index})"` : '';
                 const style = `top: ${topPx}px; left: ${leftCalc}; width: ${tileWidth};`;
                 
-                html += `<button class="${classes}" ${onclick} style="${style}" data-tile-id="${index}">${tile.text}</button>`;
                 html += `<button class="${classes}" ${onclick} style="${style}" data-tile-id="${index}" data-tile-text="${tile.text}">${tile.text}</button>`;
             });
             
