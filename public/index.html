@@ -1112,7 +1112,7 @@
             wallLives = gameState.wallLives;
             wallPhase = gameState.wallPhase;
             connectionGuesses = gameState.connectionGuesses;
-            wallTimerReady = gameState.wallTimerReady;
+            wallTimerStarted = gameState.wallTimerStarted;
             showTimeUpModal = gameState.showTimeUpModal;
             showWallFrozenModal = gameState.showWallFrozenModal;
             
@@ -1240,7 +1240,7 @@
                 wallLives,
                 wallPhase,
                 connectionGuesses,
-                wallTimerReady,
+                wallTimerStarted,
                 
                 // Vowels state
                 vowelsCurrentCategory,
@@ -1522,6 +1522,17 @@
                 currentQuestion = null;
                 cluesRevealed = 0;
                 answerRevealed = false;
+                // Set sequential index based on completed questions
+                const questionsInRound = roundIndex === 0 ? gameData.round1.length : gameData.round2.length;
+                sequentialQuestionIndex = 0;
+                for (let i = 0; i < questionsInRound; i++) {
+                    const questionKey = `r${roundIndex}q${i}`;
+                    if (completedQuestions.includes(questionKey)) {
+                        sequentialQuestionIndex = i + 1;
+                    } else {
+                        break;
+                    }
+                }
             }
             
             broadcastAction('selectRound', [roundIndex]);
@@ -2157,6 +2168,9 @@
         }
         
         function renderWall() {
+            const remainingGroups = 4 - solvedGroups.length;
+            const showLives = remainingGroups === 2 && wallPhase === 'solving' && wallTimerStarted;
+    
             let html = '<div class="wall-header">';
             
             // Back button (hidden during solving)
@@ -2513,27 +2527,27 @@
             socket.emit('joinGame', { gameCode, playerName: name });
         }
 
-        function renderRoundSelector() {
-            return `
-                <div class="round-selector">
-                    <button class="round-btn ${!isHost() ? 'disabled' : ''}" onclick="selectRound(0)">
-                        <div class="round-title">Round 1</div>
-                        <div>Connections</div>
-                    </button>
-                    <button class="round-btn disabled">
-                        <div class="round-title">Round 2</div>
-                        <div>Sequences</div>
-                    </button>
-                    <button class="round-btn disabled">
-                        <div class="round-title">Round 3</div>
-                        <div>Connecting Wall</div>
-                    </button>
-                    <button class="round-btn disabled">
-                        <div class="round-title">Round 4</div>
-                        <div>Missing Vowels</div>
-                    </button>
-                </div>
-            `;
+        function renderQuestionSelector() {
+            const questions = currentRound === 0 ? gameData.round1 : gameData.round2;
+            const roundName = currentRound === 0 ? "Round 1: Connections" : "Round 2: Sequences";
+            
+            let html = `<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">`;
+            html += `<button class="back-btn ${!isHost() ? 'disabled' : ''}" onclick="backToRounds()">← Back to Rounds</button>`;
+            html += `<div style="color: white; font-size: 1.25rem; font-weight: 600;">${roundName}</div>`;
+            html += `<div style="width: 150px;"></div>`; // Spacer for centering
+            html += `</div>`;
+            
+            html += '<div class="question-grid">';
+            for (let i = 0; i < questions.length; i++) {
+                const questionKey = `r${currentRound}q${i}`;
+                const completed = completedQuestions.includes(questionKey);
+                const isNextQuestion = (i === sequentialQuestionIndex);
+                const canSelect = isHost() && isNextQuestion && !completed;
+                const disabled = !canSelect ? 'disabled' : '';
+                html += `<button class="question-btn ${completed ? 'completed' : ''} ${disabled}" ${canSelect ? `onclick="selectQuestion(${i})"` : ''}>Q${i + 1}</button>`;
+            }
+            html += '</div>';
+            return html;
         }
 
         function renderQuestionSelector() {
@@ -2645,10 +2659,10 @@
 
         function renderWall() {
             const remainingGroups = 4 - solvedGroups.length;
-            const showLives = remainingGroups === 2 && wallPhase === 'solving' && wallTimerReady;
+            const showLives = remainingGroups === 2 && wallPhase === 'solving' && wallTimerStarted;
             
             let html = '<div class="wall-header">';
-            const hideButton = wallTimerReady ? ' style="visibility: hidden;"' : '';
+            const hideButton = wallTimerStarted ? ' style="visibility: hidden;"' : '';
             html += `<button class="back-btn ${!isHost() ? 'disabled' : ''}" onclick="backToRounds()"${hideButton}>← Back to Rounds</button>`;
             if (showLives) {
                 html += `<div class="lives-display">Lives: ${'❤️'.repeat(wallLives)}${'🖤'.repeat(3 - wallLives)}</div>`;
@@ -2697,7 +2711,7 @@
                     classes += ' text-up';
                 }
                 
-                if (!wallTimerReady) {
+                if (!wallTimerStarted) {
                     classes += ' hidden-text';
                 }
                 
@@ -2710,7 +2724,7 @@
                 }
                 
                 // Only players can click during solving
-                const canClick = isPlayer() && wallPhase === 'solving' && wallTimerReady && !tile.solved;
+                const canClick = isPlayer() && wallPhase === 'solving' && wallTimerStarted && !tile.solved;
                 
                 if (!canClick) {
                     classes += ' disabled';
@@ -2748,7 +2762,7 @@
             
             if (wallPhase === 'solving') {
                 html += '<div class="wall-timer-container">';
-                if (!wallTimerReady) {
+                if (!wallTimerStarted) {
                     if (isHost()) {
                         html += '<div style="text-align: center; padding: 1rem;">';
                         html += '<button class="btn btn-primary" onclick="startWallTimer()" style="font-size: 1.25rem; padding: 1rem 2rem;">Start Timer</button>';
