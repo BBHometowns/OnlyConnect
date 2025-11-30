@@ -1974,6 +1974,8 @@
         }
 
         function toggleTile(tileId) {
+            console.log('DEBUG toggleTile called - tileId:', tileId, 'isPlayer:', isPlayer(), 'wallPhase:', wallPhase);
+            
             // Players send request to host
             if (isPlayer() && wallPhase === 'solving') {
                 socket.emit('playerWallAction', { type: 'toggleTile', tileId });
