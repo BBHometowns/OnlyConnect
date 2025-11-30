@@ -1454,36 +1454,6 @@
             }
         }
 
-        function resetTimer() {
-            // Don't reset if we're in the middle of a question with stopped timer
-            if (timerStopped && view === 'clues' && !answerRevealed) {
-                return;  // Exit early - don't reset while revealing clues
-            }
-            
-            // Clear any running timer
-            if (timerInterval) {
-                clearInterval(timerInterval);
-                timerInterval = null;
-            }
-            
-            // Reset timer state
-            timerStartTime = null;
-            timerStopped = false;
-            timerElapsedWhenStopped = 0;
-            timerStoppedOnClue = null;
-            timerRemainingWhenStopped = null;  // Add this line
-            
-            // Reset modal states
-            showTimeUpModal = false;
-            showCluesTimeUpModal = false;
-            vowelsShowTimeUpModal = false;
-            
-            // If host, sync the state
-            if (isHost()) {
-                syncGameState();
-            }
-        }
-
         // Keyboard event listener for spacebar (players only)
         document.addEventListener('keydown', function(event) {
             if (event.code === 'Space' && isPlayer()) {
@@ -2582,7 +2552,7 @@
             
             let html = '';
             const hideButton = cluesRevealed > 0 ? ' style="visibility: hidden;"' : '';
-            html += `<button class="back-btn ${!isHost() ? 'disabled' : ''}" onclick="backToQuestions()"${hideButton}>â† Back to Questions</button>`;
+            html += `<button class="back-btn ${!isHost() ? 'disabled' : ''}" onclick="backToQuestions()"${hideButton}>← Back to Questions</button>`;
             html += '<div class="clue-container"><div class="clue-grid">';
             
             for (let i = 0; i < 4; i++) {
@@ -2657,161 +2627,6 @@
                 html += '</div>';
             }
             
-            return html;
-        }
-
-        function renderWall() {
-            console.log('DEBUG renderWall - wallPhase:', wallPhase, 'wallTimerStarted:', wallTimerStarted, 'isHost():', isHost());
-            const remainingGroups = 4 - solvedGroups.length;
-            const showLives = remainingGroups === 2 && wallPhase === 'solving' && wallTimerStarted;
-            
-            let html = '<div class="wall-header">';
-            const hideButton = wallTimerStarted ? ' style="visibility: hidden;"' : '';
-            html += `<button class="back-btn ${!isHost() ? 'disabled' : ''}" onclick="backToRounds()"${hideButton}>← Back to Rounds</button>`;
-            if (showLives) {
-                html += `<div class="lives-display">Lives: ${'â¤ï¸'.repeat(wallLives)}${'ðŸ–¤'.repeat(3 - wallLives)}</div>`;
-            }
-            html += '</div>';
-            
-            html += '<div class="wall-grid" style="position: relative; min-height: 440px;">';
-            
-            let positionIndex = 0;
-            const tilePositions = new Map();
-            
-            solvedGroups.forEach((group, groupIdx) => {
-                group.items.forEach(itemText => {
-                    const tileIndex = wallTiles.findIndex(t => t.text === itemText && t.solvedGroupIndex === groupIdx);
-                    if (tileIndex !== -1) {
-                        tilePositions.set(tileIndex, positionIndex);
-                        positionIndex++;
-                    }
-                });
-            });
-            
-            wallTiles.forEach((tile, index) => {
-                if (!tile.solved) {
-                    tilePositions.set(index, positionIndex);
-                    positionIndex++;
-                }
-            });
-            
-            wallTiles.forEach((tile, index) => {
-                const pos = tilePositions.get(index);
-                const row = Math.floor(pos / 4);
-                const col = pos % 4;
-                
-                const tileWidth = 'calc((100% - 2.25rem) / 4)';
-                const gapSize = 0.75;
-                const topPx = row * 100 + row * 12;
-                const leftCalc = `calc(${col} * ((100% - 2.25rem) / 4 + ${gapSize}rem))`;
-                
-                let classes = 'wall-tile';
-                const isSelected = selectedTiles.includes(index);
-                
-                const hasOverlay = tile.solved && wallPhase === 'guessing' && 
-                                   connectionGuesses[tile.solvedGroupIndex] && 
-                                   connectionGuesses[tile.solvedGroupIndex].revealed;
-                if (hasOverlay) {
-                    classes += ' text-up';
-                }
-                
-                if (!wallTimerStarted) {
-                    classes += ' hidden-text';
-                }
-                
-                if (tile.solved) {
-                    classes += ' solved group-' + tile.solvedGroupIndex;
-                } else if (isSelected) {
-                    classes += ' selected';
-                } else if (wallPhase !== 'solving') {
-                    classes += ' locked';
-                }
-                
-                // Only players can click during solving
-                const canClick = isPlayer() && wallPhase === 'solving' && wallTimerStarted && !tile.solved;
-                
-                if (!canClick) {
-                    classes += ' disabled';
-                }
-                
-                const onclick = canClick ? `onclick="toggleTile(${index})"` : '';
-                const style = `top: ${topPx}px; left: ${leftCalc}; width: ${tileWidth};`;
-                
-                html += `<button class="${classes}" ${onclick} style="${style}" data-tile-id="${index}" data-tile-text="${tile.text}">${tile.text}</button>`;
-            });
-            
-            if (wallPhase === 'guessing') {
-                solvedGroups.forEach((group, idx) => {
-                    const row = idx;
-                    const topPx = row * 100 + row * 12;
-                    
-                    if (connectionGuesses[idx] && connectionGuesses[idx].revealed) {
-                        const overlayTop = topPx + 50;
-                        const fadeInClass = connectionGuesses[idx].justRevealed ? ' fade-in' : '';
-                        const displayStyle = connectionGuesses[idx].justRevealed ? '' : ' opacity: 1;';
-                        html += `<div class="connection-display${fadeInClass}" style="top: ${overlayTop}px;${displayStyle}">${group.connection}</div>`;
-                    }
-                    
-                    if (!connectionGuesses[idx] && isHost()) {  // Add isHost() check
-                        const buttonsTop = topPx + 27;
-                        html += `<div style="position: absolute; right: -120px; top: ${buttonsTop}px; display: flex; gap: 0.5rem;">`;
-                        html += '<button class="guess-btn correct" onclick="guessConnection(' + idx + ', true)">âœ“</button>';
-                        html += '<button class="guess-btn incorrect" onclick="guessConnection(' + idx + ', false)">âœ—</button>';
-                        html += '</div>';
-                    }
-                });
-            }
-            
-            html += '</div>';
-            
-            if (wallPhase === 'solving') {
-                html += '<div class="wall-timer-container">';
-                if (!wallTimerStarted) {
-                    if (isHost()) {
-                        html += '<div style="text-align: center; padding: 1rem;">';
-                        html += '<button class="btn btn-primary" onclick="startWallTimer()" style="font-size: 1.25rem; padding: 1rem 2rem;">Start Timer</button>';
-                        html += '</div>';
-                    } else {
-                        // Empty space for players while waiting
-                        html += '<div style="height: 60px;"></div>';
-                    }
-                } else {
-                    html += '<div class="timer-bar-container"><div id="timerBar" class="timer-bar" style="width: 100%;"></div><div id="timerText" class="timer-text">180s</div></div>';
-                }
-                html += '</div>';
-            }
-
-            if (wallPhase === 'guessing') {
-                const allGuessed = solvedGroups.every((_, idx) => connectionGuesses[idx]);
-                if (allGuessed && isHost()) {
-                    html += '<div style="margin-top: 1.5rem; text-align: center;">';
-                    html += '<button class="btn btn-primary" onclick="selectRound(3)">Continue</button>';
-                    html += '</div>';
-                }
-            }
-
-            if (showTimeUpModal) {
-                html += '<div class="time-up-modal">';
-                html += '<div class="time-up-content" style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 200px;">';
-                html += '<div class="time-up-title">Time is Up</div>';
-                if (isHost()) {
-                    html += '<button class="btn btn-primary" onclick="resolveWallAfterTimeout()" style="font-size: 1.25rem; padding: 1rem 2rem; margin-top: 1.5rem;">Resolve the Wall</button>';
-                }
-                html += '</div>';
-                html += '</div>';
-            }
-
-            if (showWallFrozenModal) {
-                html += '<div class="wall-frozen-modal">';
-                html += '<div class="wall-frozen-content" style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 200px;">';
-                html += '<div class="wall-frozen-title">The Wall has frozen!</div>';
-                if (isHost()) {
-                    html += '<button class="btn btn-primary" onclick="resolveWallAfterFrozen()" style="font-size: 1.25rem; padding: 1rem 2rem; margin-top: 1.5rem;">Resolve the Wall</button>';
-                }
-                html += '</div>';
-                html += '</div>';
-            }
-
             return html;
         }
 
