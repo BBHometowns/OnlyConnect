@@ -2168,7 +2168,6 @@
         }
         
         function renderWall() {
-            const remainingGroups = 4 - solvedGroups.length;
             const showLives = remainingGroups === 2 && wallPhase === 'solving' && wallTimerStarted;
             
             let html = '<div class="wall-header">';
