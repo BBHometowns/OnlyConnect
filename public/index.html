@@ -2536,15 +2536,15 @@
                         <div class="round-title">Round 1</div>
                         <div>Connections</div>
                     </button>
-                    <button class="round-btn disabled">
+                    <button class="round-btn ${!isHost() ? 'disabled' : ''}" onclick="selectRound(1)">
                         <div class="round-title">Round 2</div>
                         <div>Sequences</div>
                     </button>
-                    <button class="round-btn disabled">
+                    <button class="round-btn ${!isHost() ? 'disabled' : ''}" onclick="selectRound(2)">
                         <div class="round-title">Round 3</div>
                         <div>Connecting Wall</div>
                     </button>
-                    <button class="round-btn disabled">
+                    <button class="round-btn ${!isHost() ? 'disabled' : ''}" onclick="selectRound(3)">
                         <div class="round-title">Round 4</div>
                         <div>Missing Vowels</div>
                     </button>
@@ -2661,6 +2661,7 @@
         }
 
         function renderWall() {
+            console.log('DEBUG renderWall - wallPhase:', wallPhase, 'wallTimerStarted:', wallTimerStarted, 'isHost():', isHost());
             const remainingGroups = 4 - solvedGroups.length;
             const showLives = remainingGroups === 2 && wallPhase === 'solving' && wallTimerStarted;
             
