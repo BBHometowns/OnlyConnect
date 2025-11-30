@@ -959,7 +959,7 @@
                 { clues: ["Bronze", "Silver", "Gold", "Platinum"], answer: "Platinum", sequence: "Record certification levels", points: [5, 3, 2] },
                 { clues: ["A", "E", "I", "O"], answer: "O", sequence: "Vowels in alphabetical order", points: [5, 3, 2] },
                 { clues: ["Washington", "Adams", "Jefferson", "Madison"], answer: "Madison", sequence: "US Presidents in order", points: [5, 3, 2] },
-                { clues: ["90°", "180°", "270°", "360°"], answer: "360°", sequence: "Quarter rotations", points: [5, 3, 2] },
+                { clues: ["90Â°", "180Â°", "270Â°", "360Â°"], answer: "360Â°", sequence: "Quarter rotations", points: [5, 3, 2] },
                 { clues: ["New Moon", "First Quarter", "Full Moon", "Last Quarter"], answer: "Last Quarter", sequence: "Phases of the moon", points: [5, 3, 2] }
             ],
             round3: [
@@ -2176,14 +2176,15 @@
             
             // Back button (hidden during solving)
             if (wallPhase === 'setup') {
-                html += `<button class="back-btn ${!isHost() ? 'disabled' : ''}" onclick="backToRounds()">← Back to Rounds</button>`;
+                html += `<button class="back-btn ${!isHost() ? 'disabled' : ''}" onclick="backToRounds()">â† Back to Rounds</button>`;
             } else {
                 html += '<div style="width: 150px;"></div>';
             }
             
             // Lives display
+            const remainingGroups = 4 - solvedGroups.length;
             if (remainingGroups === 2 && wallPhase === 'solving') {
-                html += `<div class="lives-display">Lives: ${'❤️'.repeat(wallLives)}${'🖤'.repeat(3 - wallLives)}</div>`;
+                html += `<div class="lives-display">Lives: ${'â¤ï¸'.repeat(wallLives)}${'ðŸ–¤'.repeat(3 - wallLives)}</div>`;
             }
             
             html += '</div>';
@@ -2209,7 +2210,7 @@
                     classes += ' hidden-text';
                 }
                 
-                const canClick = isPlayer() && wallPhase === 'solving' && wallTimerStarted && !tile.solved;
+                const canClick = (isPlayer() && wallPhase === 'solving' && !tile.solved);
                 const onclick = canClick ? `onclick="toggleTile('${tile.id}')"` : '';
                 
                 html += `<button class="${classes}" ${onclick} style="top: ${top}px; left: ${left}; width: calc(25% - 9px);" data-tile-id="${tile.id}">${tile.text}</button>`;
@@ -2226,8 +2227,8 @@
                     } else if (isHost()) {
                         const buttonsTop = row * 112 + 27;
                         html += `<div style="position: absolute; right: -60px; top: ${buttonsTop}px;">`;
-                        html += `<button class="guess-btn correct" onclick="guessConnection(${idx}, true)">✓</button>`;
-                        html += `<button class="guess-btn incorrect" onclick="guessConnection(${idx}, false)">✗</button>`;
+                        html += `<button class="guess-btn correct" onclick="guessConnection(${idx}, true)">âœ“</button>`;
+                        html += `<button class="guess-btn incorrect" onclick="guessConnection(${idx}, false)">âœ—</button>`;
                         html += '</div>';
                     }
                 });
@@ -2527,6 +2528,29 @@
             socket.emit('joinGame', { gameCode, playerName: name });
         }
 
+        function renderRoundSelector() {
+            return `
+                <div class="round-selector">
+                    <button class="round-btn ${!isHost() ? 'disabled' : ''}" onclick="selectRound(0)">
+                        <div class="round-title">Round 1</div>
+                        <div>Connections</div>
+                    </button>
+                    <button class="round-btn disabled">
+                        <div class="round-title">Round 2</div>
+                        <div>Sequences</div>
+                    </button>
+                    <button class="round-btn disabled">
+                        <div class="round-title">Round 3</div>
+                        <div>Connecting Wall</div>
+                    </button>
+                    <button class="round-btn disabled">
+                        <div class="round-title">Round 4</div>
+                        <div>Missing Vowels</div>
+                    </button>
+                </div>
+            `;
+        }
+
         function renderQuestionSelector() {
             const questions = currentRound === 0 ? gameData.round1 : gameData.round2;
             const roundName = currentRound === 0 ? "Round 1: Connections" : "Round 2: Sequences";
@@ -2557,7 +2581,7 @@
             
             let html = '';
             const hideButton = cluesRevealed > 0 ? ' style="visibility: hidden;"' : '';
-            html += `<button class="back-btn ${!isHost() ? 'disabled' : ''}" onclick="backToQuestions()"${hideButton}>← Back to Questions</button>`;
+            html += `<button class="back-btn ${!isHost() ? 'disabled' : ''}" onclick="backToQuestions()"${hideButton}>â† Back to Questions</button>`;
             html += '<div class="clue-container"><div class="clue-grid">';
             
             for (let i = 0; i < 4; i++) {
@@ -2641,9 +2665,9 @@
             
             let html = '<div class="wall-header">';
             const hideButton = wallTimerStarted ? ' style="visibility: hidden;"' : '';
-            html += `<button class="back-btn ${!isHost() ? 'disabled' : ''}" onclick="backToRounds()"${hideButton}>← Back to Rounds</button>`;
+            html += `<button class="back-btn ${!isHost() ? 'disabled' : ''}" onclick="backToRounds()"${hideButton}>â† Back to Rounds</button>`;
             if (showLives) {
-                html += `<div class="lives-display">Lives: ${'❤️'.repeat(wallLives)}${'🖤'.repeat(3 - wallLives)}</div>`;
+                html += `<div class="lives-display">Lives: ${'â¤ï¸'.repeat(wallLives)}${'ðŸ–¤'.repeat(3 - wallLives)}</div>`;
             }
             html += '</div>';
             
@@ -2729,8 +2753,8 @@
                     if (!connectionGuesses[idx] && isHost()) {  // Add isHost() check
                         const buttonsTop = topPx + 27;
                         html += `<div style="position: absolute; right: -120px; top: ${buttonsTop}px; display: flex; gap: 0.5rem;">`;
-                        html += '<button class="guess-btn correct" onclick="guessConnection(' + idx + ', true)">✓</button>';
-                        html += '<button class="guess-btn incorrect" onclick="guessConnection(' + idx + ', false)">✗</button>';
+                        html += '<button class="guess-btn correct" onclick="guessConnection(' + idx + ', true)">âœ“</button>';
+                        html += '<button class="guess-btn incorrect" onclick="guessConnection(' + idx + ', false)">âœ—</button>';
                         html += '</div>';
                     }
                 });
@@ -2795,7 +2819,7 @@
             
             let html = '';
             const hideButton = vowelsCategoryRevealed ? ' style="visibility: hidden;"' : '';
-            html += `<button class="back-btn ${!isHost() ? 'disabled' : ''}" onclick="backToRounds()"${hideButton}>← Back to Rounds</button>`;
+            html += `<button class="back-btn ${!isHost() ? 'disabled' : ''}" onclick="backToRounds()"${hideButton}>â† Back to Rounds</button>`;
             
             html += '<div class="timer-bar-container"><div id="timerBar" class="timer-bar" style="width: 100%;"></div><div id="timerText" class="timer-text">120s</div></div>';
             
