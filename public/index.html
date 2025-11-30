@@ -2170,8 +2170,9 @@
         function renderWall() {
             const remainingGroups = 4 - solvedGroups.length;
             const showLives = remainingGroups === 2 && wallPhase === 'solving' && wallTimerStarted;
-    
+            
             let html = '<div class="wall-header">';
+            const hideButton = wallTimerStarted ? ' style="visibility: hidden;"' : '';
             
             // Back button (hidden during solving)
             if (wallPhase === 'setup') {
@@ -2208,7 +2209,7 @@
                     classes += ' hidden-text';
                 }
                 
-                const canClick = (isPlayer() && wallPhase === 'solving' && !tile.solved);
+                const canClick = isPlayer() && wallPhase === 'solving' && wallTimerStarted && !tile.solved;
                 const onclick = canClick ? `onclick="toggleTile('${tile.id}')"` : '';
                 
                 html += `<button class="${classes}" ${onclick} style="top: ${top}px; left: ${left}; width: calc(25% - 9px);" data-tile-id="${tile.id}">${tile.text}</button>`;
@@ -2544,28 +2545,6 @@
                 const canSelect = isHost() && isNextQuestion && !completed;
                 const disabled = !canSelect ? 'disabled' : '';
                 html += `<button class="question-btn ${completed ? 'completed' : ''} ${disabled}" ${canSelect ? `onclick="selectQuestion(${i})"` : ''}>Q${i + 1}</button>`;
-            }
-            html += '</div>';
-            return html;
-        }
-
-        function renderQuestionSelector() {
-            const questions = currentRound === 0 ? gameData.round1 : gameData.round2;
-            const roundName = currentRound === 0 ? "Round 1: Connections" : "Round 2: Sequences";
-            
-            let html = `<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">`;
-            html += `<button class="back-btn ${!isHost() ? 'disabled' : ''}" onclick="backToRounds()">← Back to Rounds</button>`;
-            html += `<div style="color: white; font-size: 1.25rem; font-weight: 600;">${roundName}</div>`;
-            html += `<div style="width: 150px;"></div>`; // Spacer for centering
-            html += `</div>`;
-            
-            html += '<div class="question-grid">';
-            for (let i = 0; i < questions.length; i++) {
-                const questionKey = `r${currentRound}q${i}`;
-                const completed = completedQuestions.includes(questionKey);
-                const isFirstQuestion = (i === 0);
-                const disabled = !isHost() || !isFirstQuestion ? 'disabled' : '';
-                html += `<button class="question-btn ${completed ? 'completed' : ''} ${disabled}" ${isFirstQuestion && isHost() ? `onclick="selectQuestion(${i})"` : ''}>Q${i + 1}</button>`;
             }
             html += '</div>';
             return html;
