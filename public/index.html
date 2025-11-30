@@ -2170,6 +2170,7 @@
         function renderWall() {
             console.log('DEBUG renderWall - wallPhase:', wallPhase, 'wallTimerStarted:', wallTimerStarted, 'isHost():', isHost());
 
+            const remainingGroups = 4 - solvedGroups.length;
             const showLives = remainingGroups === 2 && wallPhase === 'solving' && wallTimerStarted;
             
             let html = '<div class="wall-header">';
@@ -2183,9 +2184,8 @@
             }
             
             // Lives display
-            const remainingGroups = 4 - solvedGroups.length;
-            if (remainingGroups === 2 && wallPhase === 'solving') {
-                html += `<div class="lives-display">Lives: ${'â¤ï¸'.repeat(wallLives)}${'ðŸ–¤'.repeat(3 - wallLives)}</div>`;
+            if (showLives) {
+                html += `<div class="lives-display">Lives: ${'❤️'.repeat(wallLives)}${'🖤'.repeat(3 - wallLives)}</div>`;
             }
             
             html += '</div>';
@@ -2228,8 +2228,8 @@
                     } else if (isHost()) {
                         const buttonsTop = row * 112 + 27;
                         html += `<div style="position: absolute; right: -60px; top: ${buttonsTop}px;">`;
-                        html += `<button class="guess-btn correct" onclick="guessConnection(${idx}, true)">âœ“</button>`;
-                        html += `<button class="guess-btn incorrect" onclick="guessConnection(${idx}, false)">âœ—</button>`;
+                        html += `<button class="guess-btn correct" onclick="guessConnection(${idx}, true)">✓</button>`;
+                        html += `<button class="guess-btn incorrect" onclick="guessConnection(${idx}, false)">✗</button>`;
                         html += '</div>';
                     }
                 });
