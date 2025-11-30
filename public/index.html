@@ -2895,6 +2895,8 @@
         function render() {
             const container = document.getElementById('gameContainer');
             let content = '';
+
+            console.log('DEBUG render() - view:', view, 'currentRound:', currentRound);
             
             if (view === 'rounds') content = renderRoundSelector();
             else if (view === 'questions') content = renderQuestionSelector();
