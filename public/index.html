@@ -2175,7 +2175,7 @@
             
             // Back button (hidden during solving)
             if (wallPhase === 'setup') {
-                html += `<button class="back-btn ${!isHost() ? 'disabled' : ''}" onclick="backToRounds()">â† Back to Rounds</button>`;
+                html += `<button class="back-btn ${!isHost() ? 'disabled' : ''}" onclick="backToRounds()">← Back to Rounds</button>`;
             } else {
                 html += '<div style="width: 150px;"></div>';
             }
@@ -2664,7 +2664,7 @@
             
             let html = '<div class="wall-header">';
             const hideButton = wallTimerStarted ? ' style="visibility: hidden;"' : '';
-            html += `<button class="back-btn ${!isHost() ? 'disabled' : ''}" onclick="backToRounds()"${hideButton}>â† Back to Rounds</button>`;
+            html += `<button class="back-btn ${!isHost() ? 'disabled' : ''}" onclick="backToRounds()"${hideButton}>← Back to Rounds</button>`;
             if (showLives) {
                 html += `<div class="lives-display">Lives: ${'â¤ï¸'.repeat(wallLives)}${'ðŸ–¤'.repeat(3 - wallLives)}</div>`;
             }
@@ -2818,7 +2818,7 @@
             
             let html = '';
             const hideButton = vowelsCategoryRevealed ? ' style="visibility: hidden;"' : '';
-            html += `<button class="back-btn ${!isHost() ? 'disabled' : ''}" onclick="backToRounds()"${hideButton}>â† Back to Rounds</button>`;
+            html += `<button class="back-btn ${!isHost() ? 'disabled' : ''}" onclick="backToRounds()"${hideButton}>← Back to Rounds</button>`;
             
             html += '<div class="timer-bar-container"><div id="timerBar" class="timer-bar" style="width: 100%;"></div><div id="timerText" class="timer-text">120s</div></div>';
             
