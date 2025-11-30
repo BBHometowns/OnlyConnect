@@ -2181,7 +2181,7 @@
                     classes += ' hidden-text';
                 }
                 
-                const canClick = (isPlayer() && wallPhase === 'solving' && !tile.solved);
+                const canClick = (isPlayer() && wallPhase === 'solving' && wallTimerStarted && !tile.solved);
                 const onclick = canClick ? `onclick="toggleTile('${tile.id}')"` : '';
                 
                 html += `<button class="${classes}" ${onclick} style="top: ${top}px; left: ${left}; width: calc(25% - 9px);" data-tile-id="${tile.id}">${tile.text}</button>`;
