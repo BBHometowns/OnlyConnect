@@ -1189,6 +1189,13 @@
             }
         });
 
+        socket.on('playerToggleTile', ({ tileId }) => {
+            console.log('DEBUG Host received playerToggleTile:', tileId);
+            if (isHost()) {
+                toggleTile(tileId);
+            }
+        });
+
         socket.on('hostDisconnected', () => {
             alert('Host disconnected. Game session ended.');
             location.reload();
@@ -1975,15 +1982,24 @@
         }
 
         function toggleTile(tileId) {
-            console.log('DEBUG toggleTile called - tileId:', tileId, 'isPlayer:', isPlayer(), 'wallPhase:', wallPhase);
+            console.log('DEBUG toggleTile called - tileId:', tileId, 'isPlayer:', isPlayer(), 'isHost:', isHost(), 'wallPhase:', wallPhase);
 
-            // BOTH players and host process locally
             if (wallPhase !== 'solving' || timerStopped) {
                 console.log('DEBUG Toggle blocked - wallPhase:', wallPhase, 'timerStopped:', timerStopped);
                 return;
             }
             
-            console.log('DEBUG Processing toggle for tileId:', tileId);
+            // If player, send notification to host via a broadcast event
+            if (isPlayer()) {
+                console.log('DEBUG Player requesting tile toggle:', tileId);
+                socket.emit('playerToggleTile', { tileId: tileId });
+                return;
+            }
+            
+            // Host processing only below this point
+            if (!isHost()) return;
+            
+            console.log('DEBUG Host processing toggle for tileId:', tileId);
             
             const tile = wallTiles.find(t => t.id === tileId);
             console.log('DEBUG Found tile:', tile);
@@ -2005,18 +2021,14 @@
                 selectedTiles.push(tileId);
                 console.log('DEBUG Selected tile, new selectedTiles:', selectedTiles);
                 
-                // Auto-check when 4 selected (only host does the actual check)
-                if (selectedTiles.length === 4 && isHost()) {
+                // Auto-check when 4 selected
+                if (selectedTiles.length === 4) {
                     console.log('DEBUG Auto-checking group');
                     setTimeout(checkGroup, 300);
                 }
             }
             
-            // Only host syncs state
-            if (isHost()) {
-                syncGameState();
-            }
-            
+            syncGameState();
             render();
         }
 
