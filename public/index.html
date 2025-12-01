@@ -1180,6 +1180,7 @@
         socket.on('wallAction', ({ action }) => {
             // Handle wall actions from players (only host processes these)
             if (myRole === 'host') {
+                console.log('DEBUG HOST received wallAction:', action);
                 if (action.type === 'toggleTile') {
                     toggleTile(action.tileId);
                 } else if (action.type === 'checkGroup') {
@@ -2184,8 +2185,11 @@
                 }
                 
                 const canClick = (isPlayer() && wallPhase === 'solving' && wallTimerStarted && !tile.solved);
+                if (!canClick && !tile.solved && wallPhase === 'solving') {
+                    classes += ' disabled';
+                }
                 const onclick = canClick ? `onclick="toggleTile('${tile.id}')"` : '';
-                
+
                 html += `<button class="${classes}" ${onclick} style="top: ${top}px; left: ${left}; width: calc(25% - 9px);" data-tile-id="${tile.id}">${tile.text}</button>`;
             });
             
