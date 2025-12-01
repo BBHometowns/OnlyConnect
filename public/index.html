@@ -2128,32 +2128,65 @@
         }
 
         function rearrangeTiles() {
-            // Calculate new positions FIRST
-            let newPosition = 0;
-            const newPositions = new Map();
+            // Get the tiles that just got solved (the latest solved group)
+            const lastSolvedGroup = solvedGroups[solvedGroups.length - 1];
+            const justSolvedTileIds = new Set(lastSolvedGroup.tiles);
             
-            // Position solved groups first
-            solvedGroups.forEach((group) => {
-                group.tiles.forEach(tileId => {
-                    const tile = wallTiles.find(t => t.id === tileId);
-                    if (tile) {
-                        newPositions.set(tile.id, newPosition);
-                        newPosition++;
-                    }
-                });
+            // Calculate target row for this solved group
+            const targetRow = solvedGroups.length - 1;
+            const targetStartPosition = targetRow * 4;
+            
+            // Map to store position swaps
+            const positionSwaps = new Map();
+            
+            // The solved tiles will take positions in the target row (0-3, 4-7, 8-11, or 12-15)
+            lastSolvedGroup.tiles.forEach((tileId, index) => {
+                const tile = wallTiles.find(t => t.id === tileId);
+                const targetPosition = targetStartPosition + index;
+                positionSwaps.set(tile.position, targetPosition); // old position -> new position
             });
             
-            // Then position unsolved tiles
-            wallTiles.forEach(tile => {
-                if (!tile.solved) {
-                    newPositions.set(tile.id, newPosition);
-                    newPosition++;
+            // Find which tiles are currently occupying the target positions
+            const displacedTiles = [];
+            for (let i = 0; i < lastSolvedGroup.tiles.length; i++) {
+                const targetPos = targetStartPosition + i;
+                const tileAtTarget = wallTiles.find(t => t.position === targetPos && !justSolvedTileIds.has(t.id));
+                if (tileAtTarget) {
+                    displacedTiles.push(tileAtTarget);
+                }
+            }
+            
+            // Find the positions vacated by the solved tiles
+            const vacatedPositions = [];
+            lastSolvedGroup.tiles.forEach(tileId => {
+                const tile = wallTiles.find(t => t.id === tileId);
+                if (!displacedTiles.includes(tile)) {
+                    vacatedPositions.push(tile.position);
                 }
             });
             
-            // Update tile positions
+            // Assign vacated positions to displaced tiles (closest available)
+            displacedTiles.forEach(displacedTile => {
+                // Find closest vacated position
+                let closestPos = vacatedPositions[0];
+                let minDistance = Math.abs(displacedTile.position - closestPos);
+                
+                for (let i = 1; i < vacatedPositions.length; i++) {
+                    const distance = Math.abs(displacedTile.position - vacatedPositions[i]);
+                    if (distance < minDistance) {
+                        minDistance = distance;
+                        closestPos = vacatedPositions[i];
+                    }
+                }
+                
+                positionSwaps.set(displacedTile.position, closestPos);
+                // Remove the assigned position from available vacated positions
+                vacatedPositions.splice(vacatedPositions.indexOf(closestPos), 1);
+            });
+            
+            // Apply the position swaps
             wallTiles.forEach(tile => {
-                const newPos = newPositions.get(tile.id);
+                const newPos = positionSwaps.get(tile.position);
                 if (newPos !== undefined) {
                     tile.position = newPos;
                 }
