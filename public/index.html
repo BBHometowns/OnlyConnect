@@ -1977,21 +1977,13 @@
         function toggleTile(tileId) {
             console.log('DEBUG toggleTile called - tileId:', tileId, 'isPlayer:', isPlayer(), 'wallPhase:', wallPhase);
 
-            // Players send request to host
-            if (isPlayer() && wallPhase === 'solving') {
-                console.log('DEBUG Player emitting wallAction with tileId:', tileId);
-                socket.emit('wallAction', { action: { type: 'toggleTile', tileId: tileId } });
+            // BOTH players and host process locally
+            if (wallPhase !== 'solving' || timerStopped) {
+                console.log('DEBUG Toggle blocked - wallPhase:', wallPhase, 'timerStopped:', timerStopped);
                 return;
             }
             
-            // Host processes the toggle
-            if (!isHost() || wallPhase !== 'solving' || timerStopped) {
-                console.log('DEBUG Host toggle blocked - isHost:', isHost(), 'wallPhase:', wallPhase, 'timerStopped:', timerStopped);
-                return;
-            }
-            
-            console.log('DEBUG Host processing toggle for tileId:', tileId);
-            console.log('DEBUG wallTiles:', wallTiles);
+            console.log('DEBUG Processing toggle for tileId:', tileId);
             
             const tile = wallTiles.find(t => t.id === tileId);
             console.log('DEBUG Found tile:', tile);
@@ -2013,14 +2005,18 @@
                 selectedTiles.push(tileId);
                 console.log('DEBUG Selected tile, new selectedTiles:', selectedTiles);
                 
-                // Auto-check when 4 selected
-                if (selectedTiles.length === 4) {
+                // Auto-check when 4 selected (only host does the actual check)
+                if (selectedTiles.length === 4 && isHost()) {
                     console.log('DEBUG Auto-checking group');
                     setTimeout(checkGroup, 300);
                 }
             }
             
-            syncGameState();
+            // Only host syncs state
+            if (isHost()) {
+                syncGameState();
+            }
+            
             render();
         }
 
