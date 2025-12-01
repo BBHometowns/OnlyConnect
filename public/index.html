@@ -1196,6 +1196,14 @@
             }
         });
 
+        socket.on('playerClickedTile', ({ tileId }) => {
+            console.log('DEBUG Received playerClickedTile event:', tileId, 'isHost:', isHost());
+            if (isHost()) {
+                console.log('DEBUG Host processing player tile click');
+                toggleTile(tileId);
+            }
+        });
+
         socket.on('hostDisconnected', () => {
             alert('Host disconnected. Game session ended.');
             location.reload();
@@ -1982,49 +1990,43 @@
         }
 
         function toggleTile(tileId) {
-            console.log('DEBUG toggleTile called - tileId:', tileId, 'isPlayer:', isPlayer(), 'isHost:', isHost(), 'wallPhase:', wallPhase);
+            console.log('DEBUG toggleTile called - tileId:', tileId, 'isPlayer:', isPlayer(), 'isHost:', isHost());
 
-            if (wallPhase !== 'solving' || timerStopped) {
-                console.log('DEBUG Toggle blocked - wallPhase:', wallPhase, 'timerStopped:', timerStopped);
-                return;
-            }
-            
-            // If player, send notification to host via a broadcast event
+            // Players emit an event for the host to handle
             if (isPlayer()) {
-                console.log('DEBUG Player requesting tile toggle:', tileId);
-                socket.emit('playerToggleTile', { tileId: tileId });
+                console.log('DEBUG Player emitting playerClickedTile');
+                socket.emit('playerClickedTile', { tileId: tileId });
                 return;
             }
             
-            // Host processing only below this point
-            if (!isHost()) return;
+            // Only host processes below this point
+            if (!isHost() || wallPhase !== 'solving' || timerStopped) {
+                console.log('DEBUG Host toggle blocked');
+                return;
+            }
             
-            console.log('DEBUG Host processing toggle for tileId:', tileId);
+            console.log('DEBUG Host processing tileId:', tileId);
             
             const tile = wallTiles.find(t => t.id === tileId);
-            console.log('DEBUG Found tile:', tile);
-            
             if (!tile || tile.solved) {
-                console.log('DEBUG Tile not found or already solved');
+                console.log('DEBUG Tile not valid');
                 return;
             }
             
             const selectedIndex = selectedTiles.findIndex(id => id === tileId);
-            console.log('DEBUG selectedIndex:', selectedIndex, 'selectedTiles:', selectedTiles);
             
             if (selectedIndex > -1) {
-                // Deselect
                 selectedTiles.splice(selectedIndex, 1);
-                console.log('DEBUG Deselected tile, new selectedTiles:', selectedTiles);
+                console.log('DEBUG Deselected, remaining:', selectedTiles.length);
             } else if (selectedTiles.length < 4) {
-                // Select
                 selectedTiles.push(tileId);
-                console.log('DEBUG Selected tile, new selectedTiles:', selectedTiles);
+                console.log('DEBUG Selected, total:', selectedTiles.length);
                 
-                // Auto-check when 4 selected
                 if (selectedTiles.length === 4) {
-                    console.log('DEBUG Auto-checking group');
-                    setTimeout(checkGroup, 300);
+                    console.log('DEBUG 4 tiles selected, checking in 300ms');
+                    setTimeout(() => {
+                        checkGroup();
+                    }, 300);
                 }
             }
             
