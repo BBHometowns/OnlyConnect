@@ -2247,11 +2247,15 @@
                     const row = idx;
                     const top = row * 112 + 50;
                     
-                    if (connectionGuesses[idx] && connectionGuesses[idx].revealed) {
+                    const hasBeenGuessed = connectionGuesses[idx] && connectionGuesses[idx].revealed;
+
+                    if (hasBeenGuessed) {
                         const fadeInClass = connectionGuesses[idx].justRevealed ? ' fade-in' : '';
                         const displayStyle = connectionGuesses[idx].justRevealed ? '' : ' opacity: 1;';
                         html += `<div class="connection-display${fadeInClass}" style="top: ${overlayTop}px;${displayStyle}">${group.connection}</div>`;
-                    } else if (!connectionGuesses[idx] && isHost()) {
+                    }
+
+                    if (!hasBeenGuessed && isHost()) {
                         const buttonsTop = row * 112 + 27;
                         html += `<div style="position: absolute; right: -120px; top: ${buttonsTop}px; display: flex; gap: 0.5rem;">`;
                         html += `<button class="guess-btn correct" onclick="guessConnection(${idx}, true)">✓</button>`;
