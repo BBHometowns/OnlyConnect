@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Only Connect Trivia Game</title>
+    <title>BBH Only Connect</title>
+    <script src="/socket.io/socket.io.js"></script>
     <style>
         * {
             margin: 0;
@@ -40,6 +41,46 @@
             color: white;
         }
 
+        .header-title.has-buzzer {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .buzzed-indicator {
+            display: inline-block;
+            color: #60a5fa;
+            font-size: 1rem;
+            font-weight: 600;
+            padding: 0.5rem 1rem;
+            background: rgba(59, 130, 246, 0.2);
+            border-radius: 0.5rem;
+            animation: pulseGlow 1s ease-in-out infinite;
+        }
+
+        @keyframes pulseGlow {
+            0%, 100% {
+                opacity: 1;
+                text-shadow: 0 0 10px rgba(59, 130, 246, 0.7);
+            }
+            50% {
+                opacity: 0.85;
+                text-shadow: 0 0 20px rgba(59, 130, 246, 1);
+            }
+        }
+
+        .category-display {
+            color: white;
+            font-size: 1.25rem;
+            font-weight: 600;
+            text-align: center;
+            margin-bottom: 1.5rem;
+            padding: 0.75rem;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(12px);
+            border-radius: 0.5rem;
+        }
+
         .score-box {
             background: rgba(255, 255, 255, 0.15);
             backdrop-filter: blur(12px);
@@ -53,15 +94,9 @@
                         inset 0 -3px 0 rgba(0, 0, 0, 0.3);
         }
 
-        .score-label {
-            color: rgba(255, 255, 255, 0.8);
-            font-size: 0.875rem;
-            margin-bottom: 0.25rem;
-        }
-
         .score-value {
             color: white;
-            font-size: 2.5rem;
+            font-size: 3rem;
             font-weight: bold;
             line-height: 1;
         }
@@ -83,7 +118,7 @@
             font-weight: bold;
             cursor: pointer;
             transition: all 0.2s;
-            text-align: left;
+            text-align: center;
             box-shadow: 0 6px 10px rgba(0, 0, 0, 0.4), 
                         inset 0 2px 0 rgba(255, 255, 255, 0.3),
                         inset 0 -3px 0 rgba(0, 0, 0, 0.3);
@@ -102,6 +137,11 @@
             box-shadow: 0 3px 6px rgba(0, 0, 0, 0.4), 
                         inset 0 1px 0 rgba(255, 255, 255, 0.2),
                         inset 0 -2px 0 rgba(0, 0, 0, 0.3);
+        }
+
+        .round-btn.disabled {
+            cursor: not-allowed;
+            pointer-events: none;
         }
 
         .round-title {
@@ -167,6 +207,11 @@
                         inset 0 -3px 0 rgba(0, 0, 0, 0.3);
         }
 
+        .question-btn.disabled {
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
         .clue-container {
             background: rgba(255, 255, 255, 0.1);
             backdrop-filter: blur(12px);
@@ -185,6 +230,10 @@
             display: flex;
             align-items: center;
             justify-content: center;
+        }
+
+        .buttons-container.player-hidden {
+            display: none;
         }
 
         .timer-bar-container {
@@ -265,14 +314,14 @@
                         inset 0 -3px 0 rgba(0, 0, 0, 0.3);
         }
 
-        .clue-btn:hover:not(.revealed) {
+        .clue-btn:hover:not(.revealed):not(.disabled) {
             background: rgba(255, 255, 255, 0.3);
             box-shadow: 0 8px 12px rgba(0, 0, 0, 0.5), 
                         inset 0 2px 0 rgba(255, 255, 255, 0.3),
                         inset 0 -3px 0 rgba(0, 0, 0, 0.3);
         }
 
-        .clue-btn:active:not(.revealed) {
+        .clue-btn:active:not(.revealed):not(.disabled) {
             transform: translateY(2px);
             box-shadow: 0 3px 6px rgba(0, 0, 0, 0.4), 
                         inset 0 1px 0 rgba(255, 255, 255, 0.2),
@@ -285,7 +334,11 @@
             cursor: default;
         }
 
-        /* ANSWER BOX - ALWAYS VISIBLE */
+        .clue-btn.disabled {
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
         .answer-box {
             background: rgba(255, 255, 255, 0.15);
             border: 2px solid rgba(255, 255, 255, 0.3);
@@ -329,12 +382,17 @@
                         inset 0 -2px 0 rgba(0, 0, 0, 0.3);
         }
 
+        .btn.disabled {
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
         .btn-correct {
             background: #22c55e;
             color: white;
         }
 
-        .btn-correct:hover {
+        .btn-correct:hover:not(.disabled) {
             background: #16a34a;
             box-shadow: 0 8px 12px rgba(0, 0, 0, 0.5), 
                         inset 0 2px 0 rgba(255, 255, 255, 0.3),
@@ -346,7 +404,7 @@
             color: white;
         }
 
-        .btn-incorrect:hover {
+        .btn-incorrect:hover:not(.disabled) {
             background: #dc2626;
             box-shadow: 0 8px 12px rgba(0, 0, 0, 0.5), 
                         inset 0 2px 0 rgba(255, 255, 255, 0.3),
@@ -358,7 +416,7 @@
             color: white;
         }
 
-        .btn-primary:hover {
+        .btn-primary:hover:not(.disabled) {
             background: #2563eb;
             box-shadow: 0 8px 12px rgba(0, 0, 0, 0.5), 
                         inset 0 2px 0 rgba(255, 255, 255, 0.3),
@@ -380,18 +438,23 @@
                         inset 0 -3px 0 rgba(0, 0, 0, 0.3);
         }
 
-        .back-btn:hover {
+        .back-btn:hover:not(.disabled) {
             background: rgba(255, 255, 255, 0.25);
             box-shadow: 0 8px 12px rgba(0, 0, 0, 0.5), 
                         inset 0 2px 0 rgba(255, 255, 255, 0.3),
                         inset 0 -3px 0 rgba(0, 0, 0, 0.3);
         }
 
-        .back-btn:active {
+        .back-btn:active:not(.disabled) {
             transform: translateY(2px);
             box-shadow: 0 3px 6px rgba(0, 0, 0, 0.4), 
                         inset 0 1px 0 rgba(255, 255, 255, 0.2),
                         inset 0 -2px 0 rgba(0, 0, 0, 0.3);
+        }
+
+        .back-btn.disabled {
+            cursor: not-allowed;
+            pointer-events: none;
         }
 
         /* Connecting Wall Styles */
@@ -401,7 +464,7 @@
             gap: 0.75rem;
             margin-bottom: 1rem;
             position: relative;
-            min-height: 440px; /* Fixed height to prevent jumping */
+            min-height: 440px;
         }
 
         .wall-tile {
@@ -437,7 +500,7 @@
             padding-top: 1.5rem;
         }
 
-        .wall-tile:hover:not(.solved):not(.locked) {
+        .wall-tile:hover:not(.solved):not(.locked):not(.disabled) {
             transform: scale(1.05);
         }
 
@@ -460,7 +523,11 @@
             color: transparent;
         }
 
-        /* Connection group colors - More vibrant */
+        .wall-tile.disabled {
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
         .wall-tile.group-0 {
             background: rgba(250, 204, 21, 0.55);
             border-color: rgba(250, 204, 21, 0.95);
@@ -479,12 +546,6 @@
         .wall-tile.group-3 {
             background: rgba(168, 85, 247, 0.55);
             border-color: rgba(168, 85, 247, 0.95);
-        }
-
-        .solved-group {
-            position: relative;
-            min-height: 100px;
-            margin-bottom: 0.75rem;
         }
 
         .connection-display {
@@ -521,73 +582,35 @@
             }
         }
 
-        .guess-buttons {
+        .time-up-modal, .wall-frozen-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .time-up-content, .wall-frozen-content {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(12px);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 0.5rem;
+            padding: 3rem;
+            text-align: center;
+            color: white;
             display: flex;
             flex-direction: column;
-            gap: 0.5rem;
-            opacity: 0;
-            animation: fadeInButtons 0.5s ease 2s forwards;
-        }
-
-        @keyframes fadeInButtons {
-            to {
-                opacity: 1;
-            }
-        }
-
-        .time-up-modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.8);
-            display: flex;
             align-items: center;
             justify-content: center;
-            z-index: 1000;
+            min-height: 200px;
         }
 
-        .wall-frozen-modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.8);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-        }
-
-        .time-up-content {
-            background: rgba(255, 255, 255, 0.15);
-            backdrop-filter: blur(12px);
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-radius: 0.5rem;
-            padding: 3rem;
-            text-align: center;
-            color: white;
-        }
-
-        .wall-frozen-content {
-            background: rgba(255, 255, 255, 0.15);
-            backdrop-filter: blur(12px);
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-radius: 0.5rem;
-            padding: 3rem;
-            text-align: center;
-            color: white;
-        }
-
-        .time-up-title {
-            font-size: 2rem;
-            font-weight: bold;
-            margin-bottom: 2rem;
-        }
-
-        .wall-frozen-title {
+        .time-up-title, .wall-frozen-title {
             font-size: 2rem;
             font-weight: bold;
             margin-bottom: 2rem;
@@ -622,11 +645,16 @@
             color: white;
         }
 
-        .guess-btn:hover {
+        .guess-btn:hover:not(.disabled) {
             transform: scale(1.1);
             box-shadow: 0 8px 12px rgba(0, 0, 0, 0.5), 
                         inset 0 2px 0 rgba(255, 255, 255, 0.3),
                         inset 0 -3px 0 rgba(0, 0, 0, 0.3);
+        }
+
+        .guess-btn.disabled {
+            cursor: not-allowed;
+            pointer-events: none;
         }
 
         .wall-timer-container {
@@ -651,6 +679,261 @@
             font-weight: bold;
         }
 
+        /* Missing Vowels Styles */
+        .vowels-category-box {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(12px);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            color: white;
+            text-align: center;
+            margin-bottom: 1.5rem;
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            font-weight: bold;
+            box-shadow: 0 6px 10px rgba(0, 0, 0, 0.4), 
+                        inset 0 2px 0 rgba(255, 255, 255, 0.3),
+                        inset 0 -3px 0 rgba(0, 0, 0, 0.3);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .vowels-category-box:hover:not(.disabled) {
+            background: rgba(255, 255, 255, 0.25);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 12px rgba(0, 0, 0, 0.5), 
+                        inset 0 2px 0 rgba(255, 255, 255, 0.3),
+                        inset 0 -3px 0 rgba(0, 0, 0, 0.3);
+        }
+
+        .vowels-category-box.disabled {
+            cursor: not-allowed;
+        }
+
+        .vowels-category-box.disabled:hover {
+            transform: none;
+            background: rgba(255, 255, 255, 0.15);
+            box-shadow: 0 6px 10px rgba(0, 0, 0, 0.4), 
+                        inset 0 2px 0 rgba(255, 255, 255, 0.3),
+                        inset 0 -3px 0 rgba(0, 0, 0, 0.3);
+        }
+
+        .vowels-clue-box {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(12px);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 0.5rem;
+            padding: 3rem;
+            color: white;
+            text-align: center;
+            margin-bottom: 1.5rem;
+            min-height: 160px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            font-weight: bold;
+            box-shadow: 0 6px 10px rgba(0, 0, 0, 0.4), 
+                        inset 0 2px 0 rgba(255, 255, 255, 0.3),
+                        inset 0 -3px 0 rgba(0, 0, 0, 0.3);
+        }
+
+        .vowels-clue-text {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            gap: 0.3em;
+        }
+
+        .vowels-letter {
+            display: inline-block;
+            transition: all 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+
+        .vowels-letter.spread {
+            letter-spacing: 0.15em;
+        }
+
+        .vowels-letter.vowel {
+            opacity: 0;
+            transform: scale(0);
+        }
+
+        .vowels-letter.vowel.revealed {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        /* Final Score Screen */
+        .final-score-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 60vh;
+        }
+
+        .final-score-names {
+            color: white;
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        .final-score-box {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(12px);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 0.5rem;
+            padding: 3rem 5rem;
+            text-align: center;
+            box-shadow: 0 6px 10px rgba(0, 0, 0, 0.4), 
+                        inset 0 2px 0 rgba(255, 255, 255, 0.3),
+                        inset 0 -3px 0 rgba(0, 0, 0, 0.3);
+        }
+
+        .final-score-value {
+            color: white;
+            font-size: 6rem;
+            font-weight: bold;
+            line-height: 1;
+        }
+
+        .end-session-btn {
+            margin-top: 2rem;
+            background: rgba(255, 255, 255, 0.15);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 1rem 3rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1.25rem;
+            transition: all 0.2s;
+            box-shadow: 0 6px 10px rgba(0, 0, 0, 0.4), 
+                        inset 0 2px 0 rgba(255, 255, 255, 0.3),
+                        inset 0 -3px 0 rgba(0, 0, 0, 0.3);
+        }
+
+        .end-session-btn:hover:not(.disabled) {
+            background: rgba(255, 255, 255, 0.25);
+            box-shadow: 0 8px 12px rgba(0, 0, 0, 0.5), 
+                        inset 0 2px 0 rgba(255, 255, 255, 0.3),
+                        inset 0 -3px 0 rgba(0, 0, 0, 0.3);
+        }
+
+        .end-session-btn:active:not(.disabled) {
+            transform: translateY(2px);
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.4), 
+                        inset 0 1px 0 rgba(255, 255, 255, 0.2),
+                        inset 0 -2px 0 rgba(0, 0, 0, 0.3);
+        }
+
+        .end-session-btn.disabled {
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
+        /* Setup Modal */
+        .setup-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .setup-modal-content {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(12px);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 0.5rem;
+            padding: 3rem;
+            text-align: center;
+            color: white;
+            min-width: 400px;
+        }
+
+        .setup-modal-title {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 2rem;
+        }
+
+        .setup-input {
+            width: 100%;
+            padding: 1rem;
+            font-size: 1.25rem;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 0.5rem;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            margin-bottom: 1.5rem;
+            outline: none;
+            box-shadow: 0 6px 10px rgba(0, 0, 0, 0.4), 
+                        inset 0 2px 0 rgba(0, 0, 0, 0.3);
+            text-align: center;
+        }
+
+        .setup-input::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .setup-input:focus {
+            border-color: rgba(255, 255, 255, 0.5);
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .setup-btn {
+            background: #3b82f6;
+            color: white;
+            padding: 1rem 2rem;
+            border: none;
+            border-radius: 0.5rem;
+            font-weight: bold;
+            font-size: 1.25rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 6px 10px rgba(0, 0, 0, 0.4), 
+                        inset 0 2px 0 rgba(255, 255, 255, 0.3),
+                        inset 0 -3px 0 rgba(0, 0, 0, 0.3);
+            width: 100%;
+            margin-bottom: 0.5rem;
+        }
+
+        .setup-btn:hover {
+            background: #2563eb;
+            box-shadow: 0 8px 12px rgba(0, 0, 0, 0.5), 
+                        inset 0 2px 0 rgba(255, 255, 255, 0.3),
+                        inset 0 -3px 0 rgba(0, 0, 0, 0.3);
+        }
+
+        .setup-btn:active {
+            transform: translateY(2px);
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.4), 
+                        inset 0 1px 0 rgba(255, 255, 255, 0.2),
+                        inset 0 -2px 0 rgba(0, 0, 0, 0.3);
+        }
+
+        .error-message {
+            color: #ef4444;
+            font-size: 0.875rem;
+            margin-top: 0.5rem;
+            min-height: 1.5rem;
+        }
+
         .hidden { display: none; }
     </style>
 </head>
@@ -658,6 +941,9 @@
     <div id="gameContainer"></div>
 
     <script>
+        // Socket.IO connection
+        const socket = io(window.location.origin);
+
         // Game data
         const gameData = {
             round1: [
@@ -669,12 +955,12 @@
                 { clues: ["North", "South", "East", "West"], connection: "Cardinal directions", points: [5, 3, 2, 1] }
             ],
             round2: [
-                { clues: ["1st", "2nd", "3rd", "?"], answer: "4th", sequence: "Ordinal numbers", points: [5, 3, 2] },
-                { clues: ["Bronze", "Silver", "Gold", "?"], answer: "Platinum", sequence: "Record certification levels", points: [5, 3, 2] },
-                { clues: ["A", "E", "I", "?"], answer: "O", sequence: "Vowels in alphabetical order", points: [5, 3, 2] },
-                { clues: ["Washington", "Adams", "Jefferson", "?"], answer: "Madison", sequence: "US Presidents in order", points: [5, 3, 2] },
-                { clues: ["90°", "180°", "270°", "?"], answer: "360°", sequence: "Quarter rotations", points: [5, 3, 2] },
-                { clues: ["New Moon", "First Quarter", "Full Moon", "?"], answer: "Last Quarter", sequence: "Phases of the moon", points: [5, 3, 2] }
+                { clues: ["1st", "2nd", "3rd", "4th"], answer: "4th", sequence: "Ordinal numbers", points: [5, 3, 2] },
+                { clues: ["Bronze", "Silver", "Gold", "Platinum"], answer: "Platinum", sequence: "Record certification levels", points: [5, 3, 2] },
+                { clues: ["A", "E", "I", "O"], answer: "O", sequence: "Vowels in alphabetical order", points: [5, 3, 2] },
+                { clues: ["Washington", "Adams", "Jefferson", "Madison"], answer: "Madison", sequence: "US Presidents in order", points: [5, 3, 2] },
+                { clues: ["90Â°", "180Â°", "270Â°", "360Â°"], answer: "360Â°", sequence: "Quarter rotations", points: [5, 3, 2] },
+                { clues: ["New Moon", "First Quarter", "Full Moon", "Last Quarter"], answer: "Last Quarter", sequence: "Phases of the moon", points: [5, 3, 2] }
             ],
             round3: [
                 {
@@ -685,10 +971,45 @@
                         { items: ["Apple", "Microsoft", "Amazon", "Google"], connection: "Tech companies" }
                     ]
                 }
+            ],
+            round4: [
+                {
+                    category: "Types of Cheese",
+                    clues: [
+                        { withoutVowels: "CHDR", answer: "CHEDDAR" },
+                        { withoutVowels: "MZZRLL", answer: "MOZZARELLA" },
+                        { withoutVowels: "PRMSN", answer: "PARMESAN" },
+                        { withoutVowels: "BR", answer: "BRIE" }
+                    ]
+                },
+                {
+                    category: "World Capitals",
+                    clues: [
+                        { withoutVowels: "PRS", answer: "PARIS" },
+                        { withoutVowels: "TKY", answer: "TOKYO" },
+                        { withoutVowels: "LDN", answer: "LONDON" },
+                        { withoutVowels: "RM", answer: "ROME" }
+                    ]
+                },
+                {
+                    category: "Famous Scientists",
+                    clues: [
+                        { withoutVowels: "NSTN", answer: "EINSTEIN" },
+                        { withoutVowels: "NWTN", answer: "NEWTON" },
+                        { withoutVowels: "DRWN", answer: "DARWIN" },
+                        { withoutVowels: "CR", answer: "CURIE" }
+                    ]
+                }
             ]
         };
 
         // Game state
+        let myRole = null; // 'host' or 'player1', 'player2', etc.
+        let gameCode = null;
+        let playerNames = '';
+        let allPlayers = []; // Array of all player names
+        let showSetupModal = true;
+        let setupStep = 'initial'; // 'initial', 'createGame', 'joinGame', 'enterName'
         let score = 0;
         let view = 'rounds';
         let currentRound = null;
@@ -696,368 +1017,1117 @@
         let cluesRevealed = 0;
         let answerRevealed = false;
         let completedQuestions = [];
+        let sequentialQuestionIndex = 0; // Track which question we're on in sequential play
         let timerStartTime = null;
         let timerInterval = null;
         let timerDuration = 60000;
         let timerElapsedWhenStopped = 0;
         let timerStopped = false;
-        let timerStoppedOnClue = null; // Track which clue index the timer was stopped on
+        let timerStoppedOnClue = null;
+        let timerRemainingWhenStopped = null;
+        let showCluesTimeUpModal = false;
 
         // Round 3 (Connecting Wall) state
         let wallTiles = [];
         let selectedTiles = [];
         let solvedGroups = [];
         let wallLives = 3;
-        let wallLocked = false;
+        let wallPhase = 'setup'; // 'setup', 'solving', 'guessing', 'complete'
+        let connectionGuesses = {};
         let wallTimerStarted = false;
-        let wallPhase = 'solving'; // 'solving' or 'guessing'
-        let connectionGuesses = []; // Track which connections have been guessed
-        let wallTimerReady = false; // Track if timer has been started by user
-        let showTimeUpModal = false; // Track if we should show the time up modal
-        let showWallFrozenModal = false; // Track if we should show the wall frozen modal
+        let showWallTimeUpModal = false;
+        let showWallFrozenModal = false;
+        let wallAnimations = new Map(); // Track tile positions for animations
 
-        const roundNames = ["Connections", "Sequences", "Connecting Wall", "Missing Vowels"];
+        // Round 4 (Missing Vowels) state
+        let vowelsCurrentCategory = 0;
+        let vowelsCurrentClue = 0;
+        let vowelsCategoryRevealed = false;
+        let vowelsCategoryAnimating = false;
+        let vowelsClueRevealed = false;
+        let vowelsAnswerRevealed = false;
+        let vowelsShowTimeUpModal = false;
+        
+        // Buzzer state
+        let buzzedInPlayer = null;
 
+        // Category display
+        let currentCategoryName = '';
+
+        // Socket event listeners
+        socket.on('gameCreated', ({ gameCode: code, role }) => {
+            gameCode = code;
+            myRole = role;
+            showSetupModal = false;
+            render();
+        });
+
+        socket.on('gameJoined', ({ gameCode: code, role, playerName }) => {
+            gameCode = code;
+            myRole = role;
+            playerNames = playerName;
+            showSetupModal = false;
+            render();
+        });
+
+        socket.on('gameCodeExists', () => {
+            alert('Game code already exists. Please choose another.');
+        });
+
+        socket.on('gameNotFound', () => {
+            alert('Game not found. Please check the code.');
+        });
+
+        socket.on('playersUpdated', ({ players }) => {
+            allPlayers = players;
+            updatePlayerNamesDisplay();
+            render();
+        });
+
+        socket.on('syncGameState', (gameState) => {
+            // Store the current timer state
+            const wasTimerRunning = timerInterval !== null && !timerStopped;
+            
+            // Update all state from host
+            score = gameState.score;
+            view = gameState.view;
+            currentRound = gameState.currentRound;
+            currentQuestion = gameState.currentQuestion;
+            cluesRevealed = gameState.cluesRevealed;
+            answerRevealed = gameState.answerRevealed;
+            completedQuestions = gameState.completedQuestions;
+            timerStopped = gameState.timerStopped;
+            timerElapsedWhenStopped = gameState.timerElapsedWhenStopped;
+            timerStartTime = gameState.timerStartTime;
+            timerDuration = gameState.timerDuration;
+            timerStoppedOnClue = gameState.timerStoppedOnClue;
+            timerRemainingWhenStopped = gameState.timerRemainingWhenStopped;
+            buzzedInPlayer = gameState.buzzedInPlayer;
+            showCluesTimeUpModal = gameState.showCluesTimeUpModal;
+            
+            // Wall state
+            wallTiles = gameState.wallTiles;
+            selectedTiles = gameState.selectedTiles;
+            solvedGroups = gameState.solvedGroups;
+            wallLives = gameState.wallLives;
+            wallPhase = gameState.wallPhase;
+            connectionGuesses = gameState.connectionGuesses;
+            wallTimerStarted = gameState.wallTimerStarted;
+            showTimeUpModal = gameState.showTimeUpModal;
+            showWallFrozenModal = gameState.showWallFrozenModal;
+            
+            // Vowels state
+            vowelsCurrentCategory = gameState.vowelsCurrentCategory;
+            vowelsCurrentClue = gameState.vowelsCurrentClue;
+            vowelsCategoryRevealed = gameState.vowelsCategoryRevealed;
+            vowelsCategoryAnimating = gameState.vowelsCategoryAnimating;
+            vowelsClueRevealed = gameState.vowelsClueRevealed;
+            vowelsAnswerRevealed = gameState.vowelsAnswerRevealed;
+            vowelsShowTimeUpModal = gameState.vowelsShowTimeUpModal;
+            currentCategoryName = gameState.currentCategoryName || '';
+            
+            // Handle timer state
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+
+            // If timer is stopped and we have a frozen time, show it
+            if (timerStopped && timerRemainingWhenStopped !== null) {
+                updateTimerDisplay(timerRemainingWhenStopped);
+            } else if (!timerStopped && timerStartTime) {
+                // Timer is running
+                const now = Date.now();
+                const elapsed = timerElapsedWhenStopped + (now - timerStartTime);
+                const remaining = Math.max(0, timerDuration - elapsed);
+                
+                updateTimerDisplay(remaining);
+                
+                if (remaining > 0) {
+                    timerInterval = setInterval(updateTimer, 100);
+                }
+            }
+            
+            render();
+        });
+
+        socket.on('playerBuzzed', ({ playerName }) => {
+            buzzedInPlayer = playerName;
+            if (isHost()) {
+                // Stop timer when player buzzes
+                stopTimer();
+                render();
+            } else {
+                // On player side, just update the UI
+                render();
+            }
+        });
+
+        socket.on('gameAction', (action) => {
+            // Players only - host ignores its own broadcasts
+            if (isHost()) return;
+            
+            // Handle dismissTimeUpModal specifically
+            if (action.type === 'dismissTimeUpModal') {
+                showCluesTimeUpModal = false;
+                render();
+            } else if (typeof window[action.type] === 'function') {
+                // Execute other actions
+                window[action.type].apply(null, action.params || []);
+            }
+        });
+
+        socket.on('wallAction', ({ action }) => {
+            // Handle wall actions from players (only host processes these)
+            if (myRole === 'host') {
+                console.log('DEBUG HOST received wallAction:', action);
+                if (action.type === 'toggleTile') {
+                    toggleTile(action.tileId);
+                } else if (action.type === 'checkGroup') {
+                    checkGroup();
+                }
+            }
+        });
+
+        socket.on('playerToggleTile', ({ tileId }) => {
+            console.log('DEBUG Host received playerToggleTile:', tileId);
+            if (isHost()) {
+                toggleTile(tileId);
+            }
+        });
+
+        socket.on('playerClickedTile', ({ tileId }) => {
+            console.log('DEBUG Received playerClickedTile event:', tileId, 'isHost:', isHost());
+            if (isHost()) {
+                console.log('DEBUG Host processing player tile click');
+                toggleTile(tileId);
+            }
+        });
+
+        socket.on('hostDisconnected', () => {
+            alert('Host disconnected. Game session ended.');
+            location.reload();
+        });
+
+        // Helper functions
+        function isHost() {
+            return myRole === 'host';
+        }
+
+        function isPlayer() {
+            return myRole && myRole.startsWith('player');
+        }
+
+        function syncGameState() {
+            if (!isHost()) return;
+            
+            const state = {
+                // Basic game state
+                score,
+                view,
+                currentRound,
+                currentQuestion,
+                currentCategoryName: currentCategoryName || '',
+                
+                // Clues state
+                cluesRevealed,
+                answerRevealed,
+                completedQuestions,
+                buzzedInPlayer,
+                
+                // Timer state
+                timerStopped,
+                timerElapsedWhenStopped,
+                timerRemainingWhenStopped,
+                timerStartTime,
+                timerDuration,
+                timerStoppedOnClue,
+                
+                // Modal states
+                showCluesTimeUpModal,
+                showTimeUpModal,
+                showWallFrozenModal,
+                vowelsShowTimeUpModal,
+                
+                // Wall state
+                wallTiles,
+                selectedTiles,
+                solvedGroups,
+                wallLives,
+                wallPhase,
+                connectionGuesses,
+                wallTimerStarted,
+                
+                // Vowels state
+                vowelsCurrentCategory,
+                vowelsCurrentClue,
+                vowelsCategoryRevealed,
+                vowelsCategoryAnimating,
+                vowelsClueRevealed,
+                vowelsAnswerRevealed
+            };
+            
+            socket.emit('syncState', state);
+        }
+        
+        function broadcastAction(type, params = []) {
+            if (!isHost()) return;
+            socket.emit('hostAction', { type, params });
+        }
+        
+        function updatePlayerNamesDisplay() {
+            if (isHost()) {
+                if (allPlayers.length === 0) {
+                    playerNames = "Waiting for players...";
+                } else if (allPlayers.length === 1) {
+                    playerNames = allPlayers[0].name;
+                } else if (allPlayers.length === 2) {
+                    playerNames = allPlayers[0].name + " & " + allPlayers[1].name;
+                } else {
+                    const lastPlayer = allPlayers[allPlayers.length - 1].name;
+                    const otherPlayers = allPlayers.slice(0, -1).map(p => p.name).join(", ");
+                    playerNames = otherPlayers + ", & " + lastPlayer;
+                }
+            }
+        }
+
+        // Timer functions
         function startTimer() {
             if (timerStartTime === null) {
+                // Reset all modal states when starting a new timer
+                resetAllModals();
+                
+                // Reset timer state
                 timerStartTime = Date.now();
+                timerStopped = false;
+                timerElapsedWhenStopped = 0;
+                timerRemainingWhenStopped = null;  // Clear any frozen time
+                
+                // Start the timer
                 timerInterval = setInterval(updateTimer, 100);
+                
+                // Sync the state if host
+                if (isHost()) {
+                    syncGameState();
+                }
             }
+        }
+        
+        function resetAllModals() {
+            showTimeUpModal = false;
+            showCluesTimeUpModal = false;
+            vowelsShowTimeUpModal = false;
         }
 
         function updateTimer() {
-            if (timerStopped) {
-                const remaining = Math.max(0, timerDuration - timerElapsedWhenStopped);
-                const percentage = (remaining / timerDuration) * 100;
-                const timerBar = document.getElementById('timerBar');
-                const timerText = document.getElementById('timerText');
-                if (timerBar) timerBar.style.width = percentage + '%';
-                if (timerText) timerText.textContent = Math.ceil(remaining / 1000) + 's';
-                return;
-            }
+            // Don't update if timer is stopped
+            if (timerStopped) return;
             
-            const elapsed = Date.now() - timerStartTime;
-            const remaining = Math.max(0, timerDuration - elapsed);
-            const percentage = (remaining / timerDuration) * 100;
-            const timerBar = document.getElementById('timerBar');
-            const timerText = document.getElementById('timerText');
-            if (timerBar) timerBar.style.width = percentage + '%';
-            if (timerText) timerText.textContent = Math.ceil(remaining / 1000) + 's';
-            if (remaining === 0) stopTimer();
-        }
+            if (!timerStartTime) return;
 
-        function stopTimer() {
-            if (timerInterval) {
-                if (!timerStopped && timerStartTime !== null) {
-                    timerElapsedWhenStopped = Date.now() - timerStartTime;
-                    timerStoppedOnClue = cluesRevealed - 1; // Record which clue we stopped on
-                }
+            const now = Date.now();
+            const elapsed = timerElapsedWhenStopped + (now - timerStartTime);
+            const remaining = Math.max(0, timerDuration - elapsed);
+
+            updateTimerDisplay(remaining);
+
+            if (remaining <= 0) {
                 clearInterval(timerInterval);
                 timerInterval = null;
-                timerStopped = true;
-                
-                // If we're in the wall and timer runs out, show modal
-                if (view === 'wall' && wallPhase === 'solving') {
-                    showTimeUpModal = true;
+
+                if (isHost()) {
+                    handleTimerExpiration();
                 }
-                
-                render();
             }
         }
+        
+        function updateTimerDisplay(remaining) {
+            const percentage = (remaining / timerDuration) * 100;
+            const seconds = Math.ceil(remaining / 1000);
+            
+            // Update all timer bars and texts (there might be multiple)
+            for (let i = 0; i < 4; i++) {
+                const timerBar = document.getElementById(`timerBar-${i}`);
+                const timerText = document.getElementById(`timerText-${i}`);
+                if (timerBar) timerBar.style.width = percentage + '%';
+                if (timerText) timerText.textContent = seconds + 's';
+            }
+            
+            // Also update the non-indexed ones for other rounds
+            const mainTimerBar = document.getElementById('timerBar');
+            const mainTimerText = document.getElementById('timerText');
+            if (mainTimerBar) mainTimerBar.style.width = percentage + '%';
+            if (mainTimerText) mainTimerText.textContent = seconds + 's';
+        }
 
+        function handleTimerExpiration() {
+            if (!isHost()) return;
+            
+            // Set the appropriate modal flag based on current view
+            if (view === 'clues') {
+                showCluesTimeUpModal = true;
+                timerStopped = true;
+                timerRemainingWhenStopped = 0;  // Freeze at 0 when time expires
+                
+                // Lock the timer position when time expires
+                if (timerStoppedOnClue === null) {
+                    timerStoppedOnClue = Math.max(0, cluesRevealed - 1);
+                }
+            } else if (view === 'wall') {
+                showWallFrozenModal = true;
+                timerStopped = true;
+            } else if (view === 'vowels') {
+                vowelsShowTimeUpModal = true;
+                timerStopped = true;
+            }
+            
+            syncGameState();
+            render();
+        }
+
+        function dismissTimeUpModal() {
+            if (!isHost()) return;
+            
+            // Clear the modal flag
+            showCluesTimeUpModal = false;
+            
+            // Make sure timer is fully stopped
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+            timerStopped = true;
+            
+            // Sync state to all clients FIRST
+            syncGameState();
+            
+            // Then broadcast the specific action
+            broadcastAction('dismissTimeUpModal');
+            
+            // Finally render for host
+            render();
+        }
+        
         function resetTimer() {
-            if (timerInterval) clearInterval(timerInterval);
-            timerInterval = null;
+            // Clear any running timer
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+            
+            // Reset timer state
             timerStartTime = null;
             timerStopped = false;
             timerElapsedWhenStopped = 0;
             timerStoppedOnClue = null;
+            timerRemainingWhenStopped = null;
+            
+            // Reset modal states
+            showTimeUpModal = false;
+            showCluesTimeUpModal = false;
+            vowelsShowTimeUpModal = false;
+            
+            // If host, sync the state
+            if (isHost()) {
+                syncGameState();
+            }
+        }
+        
+        function stopTimer() {
+            // First, capture the remaining time BEFORE clearing anything
+            if (timerStartTime && timerRemainingWhenStopped === null) {
+                const elapsed = timerElapsedWhenStopped + (Date.now() - timerStartTime);
+                timerRemainingWhenStopped = Math.max(0, timerDuration - elapsed);
+            }
+            
+            // Clear the interval
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+            
+            // Update elapsed time
+            if (timerStartTime) {
+                timerElapsedWhenStopped += Date.now() - timerStartTime;
+                timerStartTime = null;
+            }
+            
+            timerStopped = true;
+            
+            // Record which clue the timer stopped on
+            if (timerStoppedOnClue === null) {
+                timerStoppedOnClue = Math.max(0, cluesRevealed - 1);
+            }
+            
+            // Update the display with the frozen time
+            if (timerRemainingWhenStopped !== null) {
+                updateTimerDisplay(timerRemainingWhenStopped);
+            }
+            
+            // Sync the state if host
+            if (isHost()) {
+                syncGameState();
+            }
+        }
+
+        // Keyboard event listener for spacebar (players only)
+        document.addEventListener('keydown', function(event) {
+            if (event.code === 'Space' && isPlayer()) {
+                if ((view === 'clues' && cluesRevealed > 0 && !timerStopped) ||
+                    (view === 'vowels' && vowelsCategoryRevealed && vowelsClueRevealed && !timerStopped)) {
+                    event.preventDefault();
+                    socket.emit('buzzIn');
+                }
+            }
+        });
+
+        // Game functions with role restrictions
+        function selectRound(roundIndex) {
+            if (!isHost()) return;
+            
+            currentRound = roundIndex;
+            
+            // Reset all modals when switching rounds
+            showCluesTimeUpModal = false;
+            showTimeUpModal = false;
+            showWallFrozenModal = false;
+            vowelsShowTimeUpModal = false;
+            
+            if (roundIndex === 2) {
+                initializeWall();
+                view = 'wall';
+                currentCategoryName = "Connecting Wall";
+            } else if (roundIndex === 3) {
+                initializeVowels();
+                view = 'vowels';
+                currentCategoryName = "Missing Vowels";
+            } else {
+                // For rounds 0 (Connections) and 1 (Sequences)
+                view = 'questions';
+                // Reset question state
+                currentQuestion = null;
+                cluesRevealed = 0;
+                answerRevealed = false;
+                // Set sequential index based on completed questions
+                const questionsInRound = roundIndex === 0 ? gameData.round1.length : gameData.round2.length;
+                sequentialQuestionIndex = 0;
+                for (let i = 0; i < questionsInRound; i++) {
+                    const questionKey = `r${roundIndex}q${i}`;
+                    if (completedQuestions.includes(questionKey)) {
+                        sequentialQuestionIndex = i + 1;
+                    } else {
+                        break;
+                    }
+                }
+            }
+            
+            broadcastAction('selectRound', [roundIndex]);
+            syncGameState();
+            render();
+        }
+
+        function selectQuestion(questionIndex) {
+            if (!isHost()) return;
+            
+            const questionKey = `r${currentRound}q${questionIndex}`;
+            if (completedQuestions.includes(questionKey)) return;
+            
+            // Reset all relevant states
+            currentQuestion = questionIndex;
+            cluesRevealed = 0;
+            answerRevealed = false;
+            timerStopped = false;
+            timerElapsedWhenStopped = 0;
+            timerStartTime = null;
+            timerStoppedOnClue = null;
+            timerElapsedWhenStopped = null;
+            showCluesTimeUpModal = false;
+            showTimeUpModal = false;
+            showWallFrozenModal = false;
+            vowelsShowTimeUpModal = false;
+            buzzedInPlayer = null;
+            
+            // Reset the timer
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+            
+            // Set category name and timer duration
+            switch (currentRound) {
+                case 0:
+                    currentCategoryName = "Connections";
+                    break;
+                case 1:
+                    currentCategoryName = "Sequences";
+                    break;
+            }
+            
+            // Set the view to 'clues' and timer duration
+            view = 'clues';
+            timerDuration = 60000; // 1 minute for each question
+            
+            // Sync the state with players
+            syncGameState();
+            render();
+        }
+
+        function revealClue(index) {
+            if (!isHost()) return;
+            
+            const isSequence = currentRound === 1;
+            
+            if (index === cluesRevealed) {
+                if (isSequence && index === 3 && !timerStopped) {
+                    return;
+                }
+                
+                cluesRevealed++;
+                
+                // Only start timer if not already stopped (by buzzer or timeout)
+                if (!timerStopped && cluesRevealed < 4) {
+                    startTimer();
+                }
+                
+                broadcastAction('revealClue', [index]);
+                syncGameState();
+                render();
+            }
         }
 
         function markCorrect() {
+            if (!isHost()) return;
+            
             const isSequence = currentRound === 1;
             const question = isSequence ? gameData.round2[currentQuestion] : gameData.round1[currentQuestion];
             const pointsValues = question.points;
-            // Use the clue index where timer was stopped for points
             const pointsEarned = pointsValues[timerStoppedOnClue];
             score += pointsEarned;
             answerRevealed = true;
+            buzzedInPlayer = null;
+            
+            broadcastAction('markCorrect');
+            syncGameState();
             render();
         }
 
         function markIncorrect() {
+            if (!isHost()) return;
+            
             answerRevealed = true;
+            buzzedInPlayer = null;
+            
+            broadcastAction('markIncorrect');
+            syncGameState();
+            render();
+        }
+
+        // Player-side function to handle the broadcast
+        function revealRemainingCluesFromPlayerSide() {
+            // This will be called via gameAction broadcast
+            // The state sync from host will handle everything
             render();
         }
 
         function completeQuestion() {
+            if (!isHost()) return;
+            
             const questionKey = `r${currentRound}q${currentQuestion}`;
             if (!completedQuestions.includes(questionKey)) {
                 completedQuestions.push(questionKey);
             }
-            backToQuestions();
+            
+            sequentialQuestionIndex++;
+            
+            // Reset all modals when completing a question
+            showCluesTimeUpModal = false;
+            showTimeUpModal = false;
+            showWallFrozenModal = false;
+            vowelsShowTimeUpModal = false;
+            
+            // Broadcast the completion
+            broadcastAction('completeQuestion');
+            
+            // Auto-advance logic
+            const questionsInCurrentRound = currentRound === 0 ? gameData.round1.length : gameData.round2.length;
+            
+            if (currentQuestion < questionsInCurrentRound - 1) {
+                // Move to next question in same round
+                selectQuestion(currentQuestion + 1);
+            } else {
+                // Finished round, move to next round
+                if (currentRound === 0) {
+                    // Move from Round 1 to Round 2
+                    selectRound(1);
+                } else if (currentRound === 1) {
+                    // Move from Round 2 to Round 3 (Wall)
+                    selectRound(2);
+                } else {
+                    // Shouldn't happen with current flow, but fallback
+                    backToRounds();
+                }
+            }
         }
 
-        // Keyboard event listener for spacebar
-        document.addEventListener('keydown', function(event) {
-            if (event.code === 'Space' && view === 'clues' && cluesRevealed > 0 && !timerStopped) {
-                event.preventDefault();
-                stopTimer();
-            }
-        });
-
-        function selectRound(roundIndex) {
-            currentRound = roundIndex;
+        function backToRounds() {
+            if (!isHost()) return;
             
-            // Round 3 (Connecting Wall) goes straight to the wall
-            if (roundIndex === 2) {
-                initializeWall();
-                view = 'wall';
-            } else {
-                view = 'questions';
-            }
+            view = 'rounds';
+            currentRound = null;
+            currentQuestion = null;
+            resetTimer();
             
+            broadcastAction('backToRounds');
+            syncGameState();
             render();
         }
 
-        // Connecting Wall Functions
+        function backToQuestions() {
+            if (!isHost()) return;
+            
+            view = 'questions';
+            currentQuestion = null;
+            cluesRevealed = 0;
+            answerRevealed = false;
+            timerStopped = false;
+            timerStoppedOnClue = null;
+            showCluesTimeUpModal = false;
+            buzzedInPlayer = null;
+            resetTimer();
+            
+            broadcastAction('backToQuestions');
+            syncGameState();
+            render();
+        }
+
+        function endGame() {
+            if (!isHost()) return;
+            
+            view = 'finalScore';
+            
+            broadcastAction('endGame');
+            syncGameState();
+            render();
+        }
+
+        function endSession() {
+            if (!isHost()) return;
+            
+            location.reload();
+        }
+
+        // Round 4 (Missing Vowels) functions
+        function initializeVowels() {
+            vowelsCurrentCategory = 0;
+            vowelsCurrentClue = 0;
+            vowelsCategoryRevealed = false;
+            vowelsCategoryAnimating = false;
+            vowelsClueRevealed = false;
+            vowelsAnswerRevealed = false;
+            vowelsShowTimeUpModal = false;
+            resetTimer();
+            timerDuration = 120000;
+        }
+
+        function revealCategoryAndStartTimer() {
+            if (!isHost()) return;
+            
+            if (!vowelsCategoryRevealed) {
+                vowelsCategoryRevealed = true;
+                vowelsCategoryAnimating = true;
+                
+                // Don't change currentCategoryName - keep it as "Missing Vowels"
+                
+                syncGameState();
+                render();
+                
+                setTimeout(() => {
+                    vowelsCategoryAnimating = false;
+                    vowelsClueRevealed = true;
+                    // Only start timer if it hasn't been started yet
+                    if (timerStartTime === null) {
+                        startTimer();
+                    }
+                    
+                    broadcastAction('revealCategoryAndStartTimer');
+                    syncGameState();
+                    render();
+                }, 3000);
+            }
+        }
+
+        function markVowelsCorrect() {
+            if (!isHost()) return;
+            
+            score += 1;
+            vowelsAnswerRevealed = true;
+            
+            // Restart timer from where it stopped
+            if (timerStopped) {
+                timerStopped = false;
+                timerStartTime = Date.now();
+                // timerElapsedWhenStopped already has the right value
+                if (!timerInterval) {
+                    timerInterval = setInterval(updateTimer, 100);
+                }
+            }
+            
+            setTimeout(() => {
+                const clueElement = document.querySelector('.vowels-clue-text');
+                if (clueElement) {
+                    const letters = clueElement.querySelectorAll('.vowels-letter');
+                    letters.forEach(letter => {
+                        if (letter.classList.contains('vowel')) {
+                            letter.classList.add('revealed');
+                        }
+                    });
+                }
+            }, 50);
+            
+            broadcastAction('markVowelsCorrect');
+            syncGameState();
+            render();
+        }
+
+        function markVowelsIncorrect() {
+            if (!isHost()) return;
+            
+            vowelsAnswerRevealed = true;
+            
+            // Restart timer from where it stopped
+            if (timerStopped) {
+                timerStopped = false;
+                timerStartTime = Date.now();
+                // timerElapsedWhenStopped already has the right value
+                if (!timerInterval) {
+                    timerInterval = setInterval(updateTimer, 100);
+                }
+            }
+            
+            setTimeout(() => {
+                const clueElement = document.querySelector('.vowels-clue-text');
+                if (clueElement) {
+                    const letters = clueElement.querySelectorAll('.vowels-letter');
+                    letters.forEach(letter => {
+                        if (letter.classList.contains('vowel')) {
+                            letter.classList.add('revealed');
+                        }
+                    });
+                }
+            }, 50);
+            
+            broadcastAction('markVowelsIncorrect');
+            syncGameState();
+            render();
+        }
+
+        function nextVowelsClue() {
+            if (!isHost()) return;
+            
+            const category = gameData.round4[vowelsCurrentCategory];
+            
+            if (vowelsCurrentClue < category.clues.length - 1) {
+                vowelsCurrentClue++;
+                vowelsClueRevealed = true;
+                vowelsAnswerRevealed = false;
+                buzzedInPlayer = null;  // Clear buzzer for next clue
+                
+                // Timer continues running automatically after markCorrect/Incorrect resumed it
+                
+                broadcastAction('nextVowelsClue');
+                syncGameState();
+                render();
+            } else {
+                // End of category
+                stopTimer();
+                vowelsClueRevealed = false;
+                vowelsAnswerRevealed = false;
+                buzzedInPlayer = null;
+                
+                syncGameState();
+                render();
+            }
+        }
+
+        function nextVowelsCategory() {
+            if (!isHost()) return;
+            
+            const category = gameData.round4[vowelsCurrentCategory];
+            if (vowelsCurrentClue !== category.clues.length - 1 || !vowelsAnswerRevealed) {
+                return;
+            }
+            
+            if (vowelsCurrentCategory < gameData.round4.length - 1) {
+                vowelsCurrentCategory++;
+                vowelsCurrentClue = 0;
+                vowelsCategoryRevealed = true;
+                vowelsCategoryAnimating = true;
+                vowelsClueRevealed = false;
+                vowelsAnswerRevealed = false;
+                
+                syncGameState();
+                render();
+                
+                setTimeout(() => {
+                    vowelsCategoryAnimating = false;
+                    vowelsClueRevealed = true;
+                    
+                    // Don't reset the timer - just continue from where it was
+                    if (timerInterval === null && timerStartTime !== null) {
+                        // Resume the timer if it was running
+                        timerInterval = setInterval(updateTimer, 100);
+                    }
+                    
+                    broadcastAction('nextVowelsCategory');
+                    syncGameState();
+                    render();
+                }, 3000);
+            }
+        }
+
+        function revealVowelsAnswerFromModal() {
+            if (!isHost()) return;
+            
+            vowelsShowTimeUpModal = false;
+            
+            // When time runs out, immediately move to end game state
+            // Don't play through remaining clues
+            vowelsClueRevealed = false;
+            vowelsAnswerRevealed = true;
+            stopTimer();
+            
+            broadcastAction('revealVowelsAnswerFromModal');
+            syncGameState();
+            render();
+        }
+
+        function isVowel(char) {
+            return 'AEIOU'.includes(char.toUpperCase());
+        }
+
+        function createAnimatedClueText(withoutVowels, fullAnswer, revealed) {
+            const answerChars = fullAnswer.split('');
+            
+            let html = '<div class="vowels-clue-text">';
+            
+            for (let i = 0; i < answerChars.length; i++) {
+                const char = answerChars[i];
+                
+                if (char === ' ') {
+                    html += '<span class="vowels-letter" style="width: 1em;"> </span>';
+                } else if (isVowel(char)) {
+                    const vowelClass = revealed ? 'vowels-letter vowel revealed' : 'vowels-letter vowel';
+                    html += `<span class="${vowelClass}">${char}</span>`;
+                } else {
+                    html += `<span class="vowels-letter">${char}</span>`;
+                }
+            }
+            
+            html += '</div>';
+            return html;
+        }
+
+        // Round 3 (Connecting Wall) functions
         function initializeWall() {
             const wallData = gameData.round3[0];
             
-            // Flatten all items from all groups
-            let allItems = [];
+            // Create tiles from groups
+            let allTiles = [];
             wallData.groups.forEach((group, groupIndex) => {
                 group.items.forEach(item => {
-                    allItems.push({ text: item, groupIndex: groupIndex });
+                    allTiles.push({
+                        id: Math.random().toString(36).substr(2, 9), // Unique ID for tracking
+                        text: item,
+                        groupIndex: groupIndex,
+                        solved: false,
+                        position: null
+                    });
                 });
             });
             
-            // Shuffle the items
-            wallTiles = shuffleArray(allItems);
+            // Shuffle and assign positions
+            wallTiles = shuffleArray(allTiles);
+            wallTiles.forEach((tile, index) => {
+                tile.position = index;
+            });
+            
+            // Reset state
             selectedTiles = [];
             solvedGroups = [];
             wallLives = 3;
-            wallLocked = false;
-            wallPhase = 'solving';
-            connectionGuesses = [];
-            wallTimerReady = false;
+            wallPhase = 'setup';
+            connectionGuesses = {};
+            wallTimerStarted = false;
+            showWallTimeUpModal = false;
+            showWallFrozenModal = false;
+            wallAnimations.clear();
             
-            // Reset timer but don't start it
+            // Setup timer
             resetTimer();
             timerDuration = 180000; // 3 minutes
         }
 
         function startWallTimer() {
-            if (!wallTimerReady) {
-                wallTimerReady = true;
-                startTimer();
-                render();
-            }
+            if (!isHost() || wallTimerStarted) return;
+            
+            wallTimerStarted = true;
+            wallPhase = 'solving';
+            startTimer();
+            
+            broadcastAction('startWallTimer');
+            syncGameState();
+            render();
         }
 
-        function resolveWallAfterTimeout() {
-            showTimeUpModal = false;
+        function handleWallTimerExpired() {
+            if (!isHost()) return;
             
-            // Remove modal from DOM
-            const modal = document.querySelector('.time-up-modal');
-            if (modal) modal.remove();
+            showWallTimeUpModal = true;
+            timerStopped = true;
             
-            // Auto-solve remaining groups with sliding animation
-            autoSolveRemainingGroups();
-            
-            // Wait for animations to complete (800ms), then move to guessing phase
-            setTimeout(() => {
-                wallPhase = 'guessing';
-                render(); // This will show the guess buttons with fade-in animation
-            }, 1000);
+            syncGameState();
+            render();
         }
 
-        function resolveWallAfterFrozen() {
-            showWallFrozenModal = false;
-            
-            // Remove modal from DOM
-            const modal = document.querySelector('.wall-frozen-modal');
-            if (modal) modal.remove();
-            
-            // Fade out timer
-            const timerContainer = document.querySelector('.wall-timer-container');
-            if (timerContainer) {
-                timerContainer.classList.add('fade-out');
-                
-                // Remove timer after fade completes
-                setTimeout(() => {
-                    if (timerContainer) timerContainer.remove();
-                }, 500);
+        function toggleTile(tileId) {
+            console.log('DEBUG toggleTile called - tileId:', tileId, 'isPlayer:', isPlayer(), 'isHost:', isHost());
+
+            // Players emit an event for the host to handle
+            if (isPlayer()) {
+                console.log('DEBUG Player emitting playerClickedTile');
+                socket.emit('playerClickedTile', { tileId: tileId });
+                return;
             }
             
-            // Auto-solve remaining groups with sliding animation
-            autoSolveRemainingGroups();
-            
-            // Wait for animations to complete (800ms), then move to guessing phase
-            setTimeout(() => {
-                wallPhase = 'guessing';
-                render(); // This will show the guess buttons with fade-in animation
-            }, 1000);
-        }
-
-        function shuffleArray(array) {
-            const shuffled = [...array];
-            for (let i = shuffled.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+            // Only host processes below this point
+            if (!isHost() || wallPhase !== 'solving' || timerStopped) {
+                console.log('DEBUG Host toggle blocked');
+                return;
             }
-            return shuffled;
-        }
-
-        function toggleTile(index) {
-            if (!wallTimerReady) return; // Can't select tiles until timer starts
-            if (wallPhase !== 'solving') return;
-            if (timerStopped) return;
             
-            const tile = wallTiles[index];
-            if (tile.solved) return;
+            console.log('DEBUG Host processing tileId:', tileId);
             
-            const selectedIndex = selectedTiles.indexOf(index);
-            const element = document.querySelector(`[data-tile-id="${index}"]`);
+            const tile = wallTiles.find(t => t.id === tileId);
+            if (!tile || tile.solved) {
+                console.log('DEBUG Tile not valid');
+                return;
+            }
+            
+            const selectedIndex = selectedTiles.findIndex(id => id === tileId);
             
             if (selectedIndex > -1) {
-                // Deselect
                 selectedTiles.splice(selectedIndex, 1);
-                if (element) element.classList.remove('selected');
-            } else {
-                if (selectedTiles.length < 4) {
-                    // Select
-                    selectedTiles.push(index);
-                    if (element) element.classList.add('selected');
-                    
-                    // Auto-submit when 4 tiles are selected
-                    if (selectedTiles.length === 4) {
-                        setTimeout(() => checkGroup(), 300);
-                    }
+                console.log('DEBUG Deselected, remaining:', selectedTiles.length);
+            } else if (selectedTiles.length < 4) {
+                selectedTiles.push(tileId);
+                console.log('DEBUG Selected, total:', selectedTiles.length);
+                
+                if (selectedTiles.length === 4) {
+                    console.log('DEBUG 4 tiles selected, checking in 300ms');
+                    setTimeout(() => {
+                        checkGroup();
+                    }, 300);
                 }
             }
-        }
-
-        function updateLivesDisplay() {
-            const remainingGroups = 4 - solvedGroups.length;
-            const livesContainer = document.querySelector('.wall-header');
-            if (!livesContainer) return;
             
-            // Remove existing lives display
-            const existingLives = livesContainer.querySelector('.lives-display');
-            if (existingLives) {
-                existingLives.remove();
-            }
-            
-            // Add lives display if we're down to 2 groups
-            if (remainingGroups === 2 && wallPhase === 'solving' && wallTimerReady) {
-                const livesHtml = `<div class="lives-display">Lives: ${'❤️'.repeat(wallLives)}${'🖤'.repeat(3 - wallLives)}</div>`;
-                livesContainer.insertAdjacentHTML('beforeend', livesHtml);
-            }
+            syncGameState();
+            render();
         }
 
         function checkGroup() {
-            if (selectedTiles.length !== 4) return;
+            console.log('DEBUG checkGroup called - isHost:', isHost(), 'selectedTiles.length:', selectedTiles.length);
             
-            const selectedGroupIndices = selectedTiles.map(i => wallTiles[i].groupIndex);
-            const firstGroup = selectedGroupIndices[0];
-            const allSame = selectedGroupIndices.every(g => g === firstGroup);
+            if (!isHost() || selectedTiles.length !== 4) {
+                console.log('DEBUG checkGroup blocked');
+                return;
+            }
             
-            if (allSame) {
-                // Correct group!
-                const wallData = gameData.round3[0];
-                const groupItems = selectedTiles.map(i => wallTiles[i].text).sort();
-                
-                // Mark tiles as solved and assign to solved group
-                selectedTiles.forEach(i => {
-                    wallTiles[i].solved = true;
-                    wallTiles[i].solvedGroupIndex = solvedGroups.length;
-                });
-                
-                solvedGroups.push({
-                    items: groupItems,
-                    connection: wallData.groups[firstGroup].connection,
-                    groupIndex: firstGroup,
-                    solvedGroupIndex: solvedGroups.length
-                });
-                
-                selectedTiles = [];
-                
-                // Award 1 point for finding the group
-                score += 1;
-                
-                // Update score display only (don't re-render entire grid)
-                const scoreElement = document.querySelector('.score-value');
-                if (scoreElement) scoreElement.textContent = score;
-                
-                // Update lives display if needed
-                updateLivesDisplay();
-                
-                // Update tile positions smoothly WITHOUT re-rendering
-                updateTilePositions();
-                
-                // If 3 groups found, auto-solve the 4th
-                if (solvedGroups.length === 3) {
-                    setTimeout(() => {
-                        autoSolveLastGroup();
-                        // Wait for animation, then show guessing phase with button fade-in
-                        setTimeout(() => {
-                            endWallSolving();
-                        }, 1000);
-                    }, 800);
-                } else if (solvedGroups.length === 4) {
-                    // All groups found - wait for animation, then show guessing phase
-                    setTimeout(() => {
-                        endWallSolving();
-                    }, 1000);
-                }
+            console.log('DEBUG Checking group with tiles:', selectedTiles);
+            
+            // Get the group indices of selected tiles
+            const selectedGroups = selectedTiles.map(id => {
+                const tile = wallTiles.find(t => t.id === id);
+                console.log('DEBUG Tile:', id, 'groupIndex:', tile ? tile.groupIndex : 'NOT FOUND');
+                return tile ? tile.groupIndex : -1;
+            });
+            
+            console.log('DEBUG selectedGroups:', selectedGroups);
+            
+            // Check if all same group
+            const isCorrect = selectedGroups.every(g => g === selectedGroups[0] && g !== -1);
+            
+            console.log('DEBUG isCorrect:', isCorrect);
+            
+            if (isCorrect) {
+                console.log('DEBUG Handling correct group');
+                handleCorrectGroup();
             } else {
-                // Incorrect - only lose lives when 2 groups remain
-                const remainingGroups = 4 - solvedGroups.length;
-                
-                // Deselect tiles visually
-                selectedTiles.forEach(idx => {
-                    const element = document.querySelector(`[data-tile-id="${idx}"]`);
-                    if (element) {
-                        element.classList.remove('selected');
-                    }
-                });
-                selectedTiles = [];
-                
-                if (remainingGroups === 2) {
-                    wallLives--;
-                    updateLivesDisplay();
-                    
-                    if (wallLives === 0) {
-                        // Stop the timer
-                        if (timerInterval) {
-                            clearInterval(timerInterval);
-                            timerInterval = null;
-                            timerStopped = true;
-                        }
-                        
-                        // Show wall frozen modal without re-rendering (which would reset timer display)
-                        showWallFrozenModal = true;
-                        
-                        // Add modal to DOM without full re-render
-                        const gameContainer = document.querySelector('.game-container');
-                        if (gameContainer) {
-                            const modalHtml = `
-                                <div class="wall-frozen-modal">
-                                    <div class="wall-frozen-content">
-                                        <div class="wall-frozen-title">The Wall has frozen!</div>
-                                        <button class="btn btn-primary" onclick="resolveWallAfterFrozen()" style="font-size: 1.25rem; padding: 1rem 2rem;">Resolve the Wall</button>
-                                    </div>
-                                </div>
-                            `;
-                            gameContainer.insertAdjacentHTML('beforeend', modalHtml);
-                        }
-                    }
-                }
+                console.log('DEBUG Handling incorrect group');
+                handleIncorrectGroup();
             }
         }
 
-        function updateTilePositions() {
+        function handleCorrectGroup() {
+            const groupIndex = wallTiles.find(t => t.id === selectedTiles[0]).groupIndex;
+            const wallData = gameData.round3[0];
+            
+            // Sort selected tiles alphabetically before marking as solved
+            const sortedSelectedTiles = selectedTiles.slice().sort((aId, bId) => {
+                const tileA = wallTiles.find(t => t.id === aId);
+                const tileB = wallTiles.find(t => t.id === bId);
+                return tileA.text.localeCompare(tileB.text);
+            });
+            
+            // Mark tiles as solved
+            sortedSelectedTiles.forEach(tileId => {
+                const tile = wallTiles.find(t => t.id === tileId);
+                tile.solved = true;
+                tile.solvedGroupIndex = solvedGroups.length;
+            });
+            
+            // Add to solved groups with sorted tiles
+            solvedGroups.push({
+                tiles: sortedSelectedTiles,
+                groupIndex: groupIndex,
+                connection: wallData.groups[groupIndex].connection
+            });
+            
+            // Clear selection
+            selectedTiles = [];
+            score += 1;
+            
+            // Rearrange tiles with animation
+            rearrangeTiles();
+            
+            // Check if wall complete
+            if (solvedGroups.length === 3) {
+                // Auto-solve last group
+                setTimeout(autoSolveLastGroup, 1000);
+            }
+            
+            syncGameState();
+            render();
+        }
+
+        function handleIncorrectGroup() {
+            const remainingGroups = 4 - solvedGroups.length;
+            
+            if (remainingGroups === 2) {
+                wallLives--;
+                
+                if (wallLives === 0) {
+                    // Wall frozen
+                    showWallFrozenModal = true;
+                    stopTimer();
+                }
+            }
+            
+            selectedTiles = [];
+            syncGameState();
+            render();
+        }
+
+        function rearrangeTiles() {
             // Calculate new positions for all tiles
             let positionIndex = 0;
             const tilePositions = new Map();
@@ -1081,16 +2151,16 @@
                 }
             });
             
-            // Update DOM elements with new positions
+            // Update DOM elements with new positions WITHOUT full re-render
             wallTiles.forEach((tile, index) => {
-                const element = document.querySelector(`[data-tile-id="${index}"]`);
+                const element = document.querySelector(`[data-tile-id="${tile.id}"]`);
                 if (element) {
                     const pos = tilePositions.get(index);
                     const row = Math.floor(pos / 4);
                     const col = pos % 4;
                     
-                    const topPx = row * 100 + row * 12;
-                    const leftCalc = `calc(${col} * ((100% - 2.25rem) / 4 + 0.75rem))`;
+                    const topPx = row * 112; // 100px tile + 12px gap
+                    const leftCalc = `${col * 25}%`;
                     
                     element.style.top = topPx + 'px';
                     element.style.left = leftCalc;
@@ -1106,191 +2176,435 @@
 
         function autoSolveLastGroup() {
             const wallData = gameData.round3[0];
+            const unsolvedTiles = wallTiles.filter(t => !t.solved);
             
-            // Find the one unsolved group
-            for (let groupIndex = 0; groupIndex < 4; groupIndex++) {
-                const alreadySolved = solvedGroups.some(g => g.groupIndex === groupIndex);
+            if (unsolvedTiles.length === 4) {
+                const groupIndex = unsolvedTiles[0].groupIndex;
                 
-                if (!alreadySolved) {
-                    const groupTiles = [];
-                    
-                    wallTiles.forEach((tile, index) => {
-                        if (tile.groupIndex === groupIndex && !tile.solved) {
-                            tile.solved = true;
-                            tile.solvedGroupIndex = solvedGroups.length;
-                            groupTiles.push(tile.text);
-                        }
-                    });
-                    
-                    if (groupTiles.length > 0) {
-                        solvedGroups.push({
-                            items: groupTiles.sort(),
-                            connection: wallData.groups[groupIndex].connection,
-                            groupIndex: groupIndex,
-                            solvedGroupIndex: solvedGroups.length
-                        });
-                        
-                        // Award point for the last group
-                        score += 1;
-                        const scoreElement = document.querySelector('.score-value');
-                        if (scoreElement) scoreElement.textContent = score;
-                        
-                        // Animate tiles to their positions
-                        updateTilePositions();
-                    }
-                    break; // Only one group left
-                }
-            }
-        }
-
-        function endWallSolving() {
-            wallPhase = 'guessing';
-            render();
-        }
-
-        function autoSolveRemainingGroups() {
-            const wallData = gameData.round3[0];
-            
-            // Find all unsolved groups and mark them
-            for (let groupIndex = 0; groupIndex < 4; groupIndex++) {
-                const alreadySolved = solvedGroups.some(g => g.groupIndex === groupIndex);
+                // Sort the unsolved tiles alphabetically
+                const sortedUnsolvedTiles = unsolvedTiles.slice().sort((a, b) => a.text.localeCompare(b.text));
                 
-                if (!alreadySolved) {
-                    const groupTiles = [];
-                    
-                    wallTiles.forEach((tile, index) => {
-                        if (tile.groupIndex === groupIndex && !tile.solved) {
-                            tile.solved = true;
-                            tile.solvedGroupIndex = solvedGroups.length;
-                            groupTiles.push(tile.text);
-                        }
-                    });
-                    
-                    if (groupTiles.length > 0) {
-                        solvedGroups.push({
-                            items: groupTiles.sort(),
-                            connection: wallData.groups[groupIndex].connection,
-                            groupIndex: groupIndex,
-                            solvedGroupIndex: solvedGroups.length,
-                            autoSolved: true
-                        });
-                    }
-                }
-            }
-            
-            // Update positions with animation instead of re-rendering
-            updateTilePositions();
-        }
-
-        function guessConnection(groupIndex, correct) {
-            if (correct) {
+                sortedUnsolvedTiles.forEach(tile => {
+                    tile.solved = true;
+                    tile.solvedGroupIndex = solvedGroups.length;
+                });
+                
+                solvedGroups.push({
+                    tiles: sortedUnsolvedTiles.map(t => t.id),
+                    groupIndex: groupIndex,
+                    connection: wallData.groups[groupIndex].connection
+                });
+                
                 score += 1;
+                rearrangeTiles();
             }
             
-            // Clear all existing justRevealed flags to prevent re-animation
-            connectionGuesses.forEach(guess => {
-                if (guess && guess.justRevealed) {
-                    guess.justRevealed = false;
+            // Move to guessing phase
+            setTimeout(() => {
+                wallPhase = 'guessing';
+                stopTimer();
+                syncGameState();
+                render();
+            }, 1000);
+        }
+        
+        function renderWall() {
+            console.log('DEBUG renderWall - wallPhase:', wallPhase, 'wallTimerStarted:', wallTimerStarted, 'isHost():', isHost());
+
+            const remainingGroups = 4 - solvedGroups.length;
+            const showLives = remainingGroups === 2 && wallPhase === 'solving' && wallTimerStarted;
+            
+            let html = '<div class="wall-header">';
+            const hideButton = wallTimerStarted ? ' style="visibility: hidden;"' : '';
+            
+            // Back button (hidden during solving)
+            if (wallPhase === 'setup') {
+                html += `<button class="back-btn ${!isHost() ? 'disabled' : ''}" onclick="backToRounds()">← Back to Rounds</button>`;
+            } else {
+                html += '<div style="width: 150px;"></div>';
+            }
+            
+            // Lives display
+            if (showLives) {
+                html += `<div class="lives-display">Lives: ${'❤️'.repeat(wallLives)}${'🖤'.repeat(3 - wallLives)}</div>`;
+            }
+            
+            html += '</div>';
+            
+            // Wall grid
+            html += '<div class="wall-grid">';
+            
+            // Render tiles
+            wallTiles.forEach((tile, index) => {
+                const row = Math.floor(index / 4);
+                const col = index % 4;
+                const top = row * 112; // 100px tile + 12px gap
+                const left = `${col * 25}%`;
+                
+                let classes = 'wall-tile';
+                if (tile.solved) {
+                    classes += ` solved group-${tile.solvedGroupIndex}`;
                 }
+                if (selectedTiles.includes(tile.id)) {
+                    classes += ' selected';
+                }
+                if (wallPhase === 'setup') {
+                    classes += ' hidden-text';
+                }
+                
+                const canClick = (isPlayer() && wallPhase === 'solving' && wallTimerStarted && !tile.solved);
+                if (!canClick && !tile.solved && wallPhase === 'solving') {
+                    classes += ' disabled';
+                }
+                const onclick = canClick ? `onclick="toggleTile('${tile.id}')"` : '';
+
+                html += `<button class="${classes}" ${onclick} style="top: ${top}px; left: ${left}; width: calc(25% - 9px);" data-tile-id="${tile.id}">${tile.text}</button>`;
             });
             
-            connectionGuesses[groupIndex] = {
-                correct: correct,
-                revealed: true,
-                justRevealed: true // Flag for fade-in animation
+            // Connection displays for guessing phase
+            if (wallPhase === 'guessing') {
+                solvedGroups.forEach((group, idx) => {
+                    const row = idx;
+                    const top = row * 112 + 50;
+                    
+                    const hasBeenGuessed = connectionGuesses[idx] && connectionGuesses[idx].revealed;
+
+                    if (hasBeenGuessed) {
+                        // Always show with full opacity if already revealed, no animation
+                        html += `<div class="connection-display" style="top: ${top}px; opacity: 1;">${group.connection}</div>`;
+                    }
+
+                    if (!hasBeenGuessed && isHost()) {
+                        const buttonsTop = row * 112 + 27;
+                        html += `<div style="position: absolute; right: -120px; top: ${buttonsTop}px; display: flex; gap: 0.5rem;">`;
+                        html += `<button class="guess-btn correct" onclick="guessConnection(${idx}, true)">✓</button>`;
+                        html += `<button class="guess-btn incorrect" onclick="guessConnection(${idx}, false)">✗</button>`;
+                        html += '</div>';
+                    }
+                });
+            }
+            
+            html += '</div>';
+            
+            // Timer section
+            if (wallPhase === 'setup' && isHost()) {
+                html += '<div style="text-align: center; margin-top: 2rem;">';
+                html += '<button class="btn btn-primary" onclick="startWallTimer()">Start Timer</button>';
+                html += '</div>';
+            } else if (wallPhase === 'solving') {
+                html += '<div class="timer-bar-container" style="margin-top: 1rem;">';
+                html += '<div id="timerBar" class="timer-bar"></div>';
+                html += '<div id="timerText" class="timer-text">180s</div>';
+                html += '</div>';
+            }
+            
+            // Continue button for guessing complete
+            if (wallPhase === 'guessing' && Object.keys(connectionGuesses).length === solvedGroups.length && isHost()) {
+                html += '<div style="text-align: center; margin-top: 2rem;">';
+                html += '<button class="btn btn-primary" onclick="selectRound(3)">Continue to Missing Vowels</button>';
+                html += '</div>';
+            }
+            
+            // Modals
+            if (showWallTimeUpModal) {
+                html += renderWallTimeUpModal();
+            }
+            if (showWallFrozenModal) {
+                html += renderWallFrozenModal();
+            }
+            
+            return html;
+        }
+
+        function guessConnection(groupIndex, isCorrect) {
+            if (!isHost()) return;
+            
+            // Mark this specific guess with revealed flag (no justRevealed flag needed)
+            connectionGuesses[groupIndex] = { 
+                correct: isCorrect, 
+                revealed: true
             };
             
-            // Check if all connections have been guessed
-            const allGuessed = solvedGroups.every((_, idx) => connectionGuesses[idx]);
+            if (isCorrect) score += 1;
             
-            // Check for bonus: all 4 groups found in time AND all 4 guessed correctly
-            if (allGuessed) {
-                const allFoundInTime = solvedGroups.every(g => !g.autoSolved);
-                const allGuessedCorrect = connectionGuesses.every(g => g.correct);
+            // Check for bonus
+            if (Object.keys(connectionGuesses).length === 4) {
+                const allCorrect = Object.values(connectionGuesses).every(v => v.correct);
+                const allFound = solvedGroups.every(g => !g.autoSolved);
                 
-                if (allFoundInTime && allGuessedCorrect) {
+                if (allCorrect && allFound) {
                     score += 2; // Bonus points
                 }
             }
             
-            render();
-            
-            // Remove justRevealed flag after animation completes
-            setTimeout(() => {
-                if (connectionGuesses[groupIndex]) {
-                    connectionGuesses[groupIndex].justRevealed = false;
-                }
-            }, 1000);
-        }
-
-        function selectQuestion(questionIndex) {
-            const questionKey = `r${currentRound}q${questionIndex}`;
-            if (completedQuestions.includes(questionKey)) return;
-            currentQuestion = questionIndex;
-            cluesRevealed = 0;
-            answerRevealed = false;
-            timerStopped = false;
-            timerStoppedOnClue = null;
-            resetTimer();
-            timerDuration = 60000; // 60 seconds for rounds 1 and 2
-            view = 'clues';
+            syncGameState();
             render();
         }
 
-        function revealClue(index) {
-            const isSequence = currentRound === 1;
+        function renderWallTimeUpModal() {
+            let html = '<div class="time-up-modal">';
+            html += '<div class="time-up-content">';
+            html += '<div class="time-up-title">Time is Up</div>';
+            if (isHost()) {
+                html += '<button class="btn btn-primary" onclick="resolveWallTimeout()">Resolve Wall</button>';
+            }
+            html += '</div></div>';
+            return html;
+        }
+
+        function renderWallFrozenModal() {
+            let html = '<div class="wall-frozen-modal">';
+            html += '<div class="wall-frozen-content">';
+            html += '<div class="wall-frozen-title">The Wall has Frozen!</div>';
+            if (isHost()) {
+                html += '<button class="btn btn-primary" onclick="resolveWallFrozen()">Resolve Wall</button>';
+            }
+            html += '</div></div>';
+            return html;
+        }
+
+        function resolveWallTimeout() {
+            if (!isHost()) return;
+            showWallTimeUpModal = false;
+            autoSolveRemaining();
+        }
+
+        function resolveWallFrozen() {
+            if (!isHost()) return;
+            showWallFrozenModal = false;
+            autoSolveRemaining();
+        }
+
+        function autoSolveRemaining() {
+            // Auto-solve all remaining groups
+            const wallData = gameData.round3[0];
             
-            // Only allow advancing to the next clue
-            if (index === cluesRevealed) {
-                // For sequence round, check if we're trying to reveal clue 4 before timer is stopped
-                if (isSequence && index === 3 && !timerStopped) {
-                    return; // Don't reveal the 4th clue until timer is stopped
+            for (let g = 0; g < 4; g++) {
+                if (!solvedGroups.some(sg => sg.groupIndex === g)) {
+                    const tiles = wallTiles.filter(t => t.groupIndex === g && !t.solved);
+                    
+                    // Sort tiles alphabetically before marking as solved
+                    const sortedTiles = tiles.slice().sort((a, b) => a.text.localeCompare(b.text));
+                    
+                    sortedTiles.forEach(t => {
+                        t.solved = true;
+                        t.solvedGroupIndex = solvedGroups.length;
+                    });
+                    
+                    solvedGroups.push({
+                        tiles: sortedTiles.map(t => t.id),
+                        groupIndex: g,
+                        connection: wallData.groups[g].connection,
+                        autoSolved: true
+                    });
                 }
-                
-                cluesRevealed++;
-                
-                // Start timer only if it hasn't been stopped and we're not on the 4th clue
-                if (!timerStopped && cluesRevealed < 4) {
-                    startTimer();
-                }
-                
-                render();
+            }
+            
+            rearrangeTiles();
+            wallPhase = 'guessing';
+            syncGameState();
+            render();
+        }
+
+        function shuffleArray(array) {
+            const shuffled = [...array];
+            for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+            }
+            return shuffled;
+        }
+
+        // Render functions
+        function renderSetupModal() {
+            if (!showSetupModal) return '';
+            
+            if (setupStep === 'initial') {
+                return `
+                    <div class="setup-modal">
+                        <div class="setup-modal-content">
+                            <div class="setup-modal-title">Only Connect</div>
+                            <button class="setup-btn" onclick="showHostPassword()">New Game (Host)</button>
+                            <button class="setup-btn" onclick="showJoinGame()">Join Game (Player)</button>
+                        </div>
+                    </div>
+                `;
+            } else if (setupStep === 'hostPassword') {
+                return `
+                    <div class="setup-modal">
+                        <div class="setup-modal-content">
+                            <div class="setup-modal-title">Host Verification</div>
+                            <p style="color: white; margin-bottom: 1rem; font-size: 0.875rem;">Enter production password to continue</p>
+                            <input type="password" 
+                                   id="passwordInput" 
+                                   class="setup-input" 
+                                   placeholder="Password" 
+                                   onkeypress="if(event.key === 'Enter') verifyHostPassword()">
+                            <button class="setup-btn" onclick="verifyHostPassword()">Verify</button>
+                            <button class="setup-btn" onclick="setupStep = 'initial'; render();" style="background: rgba(255, 255, 255, 0.15);">Back</button>
+                            <div class="error-message" id="errorMessage"></div>
+                        </div>
+                    </div>
+                `;
+            } else if (setupStep === 'createGame') {
+                return `
+                    <div class="setup-modal">
+                        <div class="setup-modal-content">
+                            <div class="setup-modal-title">Create Game</div>
+                            <input type="text" 
+                                   id="gameCodeInput" 
+                                   class="setup-input" 
+                                   placeholder="Enter game code (e.g., Veto2)" 
+                                   onkeypress="if(event.key === 'Enter') createGame()">
+                            <button class="setup-btn" onclick="createGame()">Create Game</button>
+                            <button class="setup-btn" onclick="setupStep = 'initial'; render();" style="background: rgba(255, 255, 255, 0.15);">Back</button>
+                            <div class="error-message" id="errorMessage"></div>
+                        </div>
+                    </div>
+                `;
+            } else if (setupStep === 'joinGame') {
+                return `
+                    <div class="setup-modal">
+                        <div class="setup-modal-content">
+                            <div class="setup-modal-title">Join Game</div>
+                            <input type="text" 
+                                   id="joinCodeInput" 
+                                   class="setup-input" 
+                                   placeholder="Enter game code" 
+                                   onkeypress="if(event.key === 'Enter') proceedToName()">
+                            <button class="setup-btn" onclick="proceedToName()">Next</button>
+                            <button class="setup-btn" onclick="setupStep = 'initial'; render();" style="background: rgba(255, 255, 255, 0.15);">Back</button>
+                            <div class="error-message" id="errorMessage"></div>
+                        </div>
+                    </div>
+                `;
+            } else if (setupStep === 'enterName') {
+                return `
+                    <div class="setup-modal">
+                        <div class="setup-modal-content">
+                            <div class="setup-modal-title">Enter Your Name</div>
+                            <input type="text" 
+                                   id="playerNameInput" 
+                                   class="setup-input" 
+                                   placeholder="Your name" 
+                                   onkeypress="if(event.key === 'Enter') joinGame()">
+                            <button class="setup-btn" onclick="joinGame()">Join Game</button>
+                            <button class="setup-btn" onclick="setupStep = 'joinGame'; render();" style="background: rgba(255, 255, 255, 0.15);">Back</button>
+                            <div class="error-message" id="errorMessage"></div>
+                        </div>
+                    </div>
+                `;
             }
         }
 
-        function backToRounds() {
-            view = 'rounds';
-            currentRound = null;
-            currentQuestion = null;
-            resetTimer();
+        function showHostPassword() {
+            setupStep = 'hostPassword';
             render();
+            setTimeout(() => {
+                const input = document.getElementById('passwordInput');
+                if (input) input.focus();
+            }, 100);
         }
 
-        function backToQuestions() {
-            view = 'questions';
-            currentQuestion = null;
-            cluesRevealed = 0;
-            answerRevealed = false;
-            timerStopped = false;
-            timerStoppedOnClue = null;
-            resetTimer();
+        function verifyHostPassword() {
+            const input = document.getElementById('passwordInput');
+            const password = input ? input.value : '';
+            const correctPassword = 'Haych22'; // Change this to your desired password
+            
+            if (password === correctPassword) {
+                showCreateGame();
+            } else {
+                const errorMsg = document.getElementById('errorMessage');
+                if (errorMsg) errorMsg.textContent = 'Incorrect password. Access denied.';
+                setTimeout(() => {
+                    setupStep = 'initial';
+                    render();
+                }, 2000);
+            }
+        }
+
+        function showCreateGame() {
+            setupStep = 'createGame';
             render();
+            setTimeout(() => {
+                const input = document.getElementById('gameCodeInput');
+                if (input) input.focus();
+            }, 100);
+        }
+
+        function showJoinGame() {
+            setupStep = 'joinGame';
+            render();
+            setTimeout(() => {
+                const input = document.getElementById('joinCodeInput');
+                if (input) input.focus();
+            }, 100);
+        }
+
+        function createGame() {
+            const input = document.getElementById('gameCodeInput');
+            const code = input ? input.value.trim() : '';
+            
+            if (!code) {
+                const errorMsg = document.getElementById('errorMessage');
+                if (errorMsg) errorMsg.textContent = 'Please enter a game code';
+                return;
+            }
+            
+            socket.emit('createGame', code);
+        }
+
+        function proceedToName() {
+            const input = document.getElementById('joinCodeInput');
+            const code = input ? input.value.trim() : '';
+            
+            if (!code) {
+                const errorMsg = document.getElementById('errorMessage');
+                if (errorMsg) errorMsg.textContent = 'Please enter a game code';
+                return;
+            }
+            
+            gameCode = code;
+            setupStep = 'enterName';
+            render();
+            
+            setTimeout(() => {
+                const nameInput = document.getElementById('playerNameInput');
+                if (nameInput) nameInput.focus();
+            }, 100);
+        }
+
+        function joinGame() {
+            const input = document.getElementById('playerNameInput');
+            const name = input ? input.value.trim() : '';
+            
+            if (!name) {
+                const errorMsg = document.getElementById('errorMessage');
+                if (errorMsg) errorMsg.textContent = 'Please enter your name';
+                return;
+            }
+            
+            socket.emit('joinGame', { gameCode, playerName: name });
         }
 
         function renderRoundSelector() {
             return `
                 <div class="round-selector">
-                    <button class="round-btn" onclick="selectRound(0)">
+                    <button class="round-btn ${!isHost() ? 'disabled' : ''}" onclick="selectRound(0)">
                         <div class="round-title">Round 1</div>
                         <div>Connections</div>
                     </button>
-                    <button class="round-btn" onclick="selectRound(1)">
+                    <button class="round-btn ${!isHost() ? 'disabled' : ''}" onclick="selectRound(1)">
                         <div class="round-title">Round 2</div>
                         <div>Sequences</div>
                     </button>
-                    <button class="round-btn" onclick="selectRound(2)">
+                    <button class="round-btn ${!isHost() ? 'disabled' : ''}" onclick="selectRound(2)">
                         <div class="round-title">Round 3</div>
                         <div>Connecting Wall</div>
+                    </button>
+                    <button class="round-btn ${!isHost() ? 'disabled' : ''}" onclick="selectRound(3)">
+                        <div class="round-title">Round 4</div>
+                        <div>Missing Vowels</div>
                     </button>
                 </div>
             `;
@@ -1298,12 +2612,22 @@
 
         function renderQuestionSelector() {
             const questions = currentRound === 0 ? gameData.round1 : gameData.round2;
-            let html = '<button class="back-btn" onclick="backToRounds()">← Back to Rounds</button>';
+            const roundName = currentRound === 0 ? "Round 1: Connections" : "Round 2: Sequences";
+            
+            let html = `<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">`;
+            html += `<button class="back-btn ${!isHost() ? 'disabled' : ''}" onclick="backToRounds()">← Back to Rounds</button>`;
+            html += `<div style="color: white; font-size: 1.25rem; font-weight: 600;">${roundName}</div>`;
+            html += `<div style="width: 150px;"></div>`; // Spacer for centering
+            html += `</div>`;
+            
             html += '<div class="question-grid">';
             for (let i = 0; i < questions.length; i++) {
                 const questionKey = `r${currentRound}q${i}`;
                 const completed = completedQuestions.includes(questionKey);
-                html += `<button class="question-btn ${completed ? 'completed' : ''}" onclick="selectQuestion(${i})">Q${i + 1}</button>`;
+                const isNextQuestion = (i === sequentialQuestionIndex);
+                const canSelect = isHost() && isNextQuestion && !completed;
+                const disabled = !canSelect ? 'disabled' : '';
+                html += `<button class="question-btn ${completed ? 'completed' : ''} ${disabled}" ${canSelect ? `onclick="selectQuestion(${i})"` : ''}>Q${i + 1}</button>`;
             }
             html += '</div>';
             return html;
@@ -1314,258 +2638,313 @@
             const question = isSequence ? gameData.round2[currentQuestion] : gameData.round1[currentQuestion];
             const pointsValues = question.points;
             
-            // Always render button but hide with visibility when timer is active
             let html = '';
             const hideButton = cluesRevealed > 0 ? ' style="visibility: hidden;"' : '';
-            html += `<button class="back-btn" onclick="backToQuestions()"${hideButton}>← Back to Questions</button>`;
+            html += `<button class="back-btn ${!isHost() ? 'disabled' : ''}" onclick="backToQuestions()"${hideButton}>← Back to Questions</button>`;
             html += '<div class="clue-container"><div class="clue-grid">';
             
             for (let i = 0; i < 4; i++) {
                 html += '<div class="clue-wrapper">';
                 
-                // Determine which clue should show the timer/points
                 let showTimerOnThisClue;
                 if (timerStopped && timerStoppedOnClue !== null) {
-                    // If timer is stopped, show it on the clue where it was stopped
                     showTimerOnThisClue = (i === timerStoppedOnClue);
                 } else {
-                    // Otherwise, show it on the currently active clue (before it's revealed)
-                    // For sequences, don't show timer/points on 4th clue
                     showTimerOnThisClue = isSequence ? (i === cluesRevealed - 1 && cluesRevealed > 0 && i < 3) : (i === cluesRevealed - 1 && cluesRevealed > 0);
                 }
                 
                 if (showTimerOnThisClue) {
                     html += `<div class="points-label">${pointsValues[i]} Point${pointsValues[i] !== 1 ? 's' : ''}</div>`;
-                    html += `<div class="timer-bar-container"><div id="timerBar" class="timer-bar" style="width: 100%;"></div><div id="timerText" class="timer-text">60s</div></div>`;
+                    html += `<div class="timer-bar-container"><div class="timer-bar" id="timerBar-${i}" style="width: 100%;"></div><div class="timer-text" id="timerText-${i}">60s</div></div>`;
                 } else {
                     html += '<div class="timer-spacer"></div>';
                 }
                 
                 const revealed = i < cluesRevealed;
-                
-                // For sequences, 4th clue can only be revealed after timer is stopped
                 const canReveal = isSequence ? (i < 3 || timerStopped) : true;
                 const clueText = revealed ? question.clues[i] : '';
-                const classes = 'clue-btn' + (revealed ? ' revealed' : '');
-                
-                // Only make the NEXT unrevealed clue clickable
-                const onclick = (i === cluesRevealed && canReveal) ? `onclick="revealClue(${i})"` : '';
+                const classes = 'clue-btn' + (revealed ? ' revealed' : '') + (!isHost() ? ' disabled' : '');
+                const onclick = (i === cluesRevealed && canReveal && isHost()) ? `onclick="revealClue(${i})"` : '';
                 
                 html += `<button class="${classes}" ${onclick}>${clueText}</button>`;
                 html += '</div>';
             }
-            html += '</div>'; // Close grid
+            html += '</div>';
             
-            // ANSWER BOX - in same container as clues
             const answerText = isSequence ? question.answer : question.connection;
             const subtitle = isSequence ? question.sequence : '';
             html += '<div class="answer-box">';
             if (answerRevealed) {
-                html += `<div><div style="font-size: 0.875rem; margin-bottom: 0.5rem;">${isSequence ? 'Answer:' : 'Connection:'}</div>`;
-                html += `<div style="font-size: 1.25rem; font-weight: bold;">${answerText}</div>`;
-                if (subtitle) html += `<div style="font-size: 0.875rem; margin-top: 0.5rem; opacity: 0.8;">${subtitle}</div>`;
-                html += '</div>';
+                if (isSequence) {
+                    html += `<div style="font-size: 1.25rem; font-weight: bold;">${subtitle}</div>`;
+                } else {
+                    html += `<div style="font-size: 1.25rem; font-weight: bold;">${answerText}</div>`;
+                }
+            } else if (isHost() && cluesRevealed > 0) {
+                // Show answer to host only, with transparency
+                const displayAnswer = isSequence ? subtitle : answerText;
+                html += `<div style="font-size: 1.25rem; font-weight: bold; opacity: 0.3; color: #94a3b8;">${displayAnswer}</div>`;
             }
-            html += '</div>'; // Close answer box
-            html += '</div>'; // Close clue container
+            html += '</div>';
             
-            // BUTTONS CONTAINER - separate container for correct/incorrect/continue with fixed height
-            html += '<div class="buttons-container">';
+            const buttonContainerClass = !isHost() ? 'buttons-container player-hidden' : 'buttons-container';
+            html += `<div class="${buttonContainerClass}">`;
             if (timerStopped && !answerRevealed) {
                 html += '<div class="button-row">';
-                html += '<button class="btn btn-correct" onclick="markCorrect()">Correct</button>';
-                html += '<button class="btn btn-incorrect" onclick="markIncorrect()">Incorrect</button>';
+                html += `<button class="btn btn-correct ${!isHost() ? 'disabled' : ''}" onclick="markCorrect()">Correct</button>`;
+                html += `<button class="btn btn-incorrect ${!isHost() ? 'disabled' : ''}" onclick="markIncorrect()">Incorrect</button>`;
                 html += '</div>';
             }
             if (answerRevealed) {
-                html += '<button class="btn btn-primary" onclick="completeQuestion()">Continue</button>';
+                html += `<button class="btn btn-primary ${!isHost() ? 'disabled' : ''}" onclick="completeQuestion()">Continue</button>`;
             }
-            html += '</div>'; // Close buttons container
+            html += '</div>';
+            
+            // Timeout modal for Connections/Sequence rounds
+            if (showCluesTimeUpModal) {
+                html += '<div class="time-up-modal">';
+                html += '<div class="time-up-content" style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 200px;">';
+                html += '<div class="time-up-title">Time is Up</div>';
+                
+                // Only show button for host
+                if (isHost()) {
+                    html += '<button class="btn btn-primary" onclick="dismissTimeUpModal()" style="font-size: 1.25rem; padding: 1rem 2rem; margin-top: 1.5rem;">Continue</button>';
+                }
+                
+                html += '</div>';
+                html += '</div>';
+            }
             
             return html;
         }
 
-        function renderWall() {
-            const remainingGroups = 4 - solvedGroups.length;
-            const showLives = remainingGroups === 2 && wallPhase === 'solving' && wallTimerReady;
+        function renderVowels() {
+            const category = gameData.round4[vowelsCurrentCategory];
+            const clue = category.clues[vowelsCurrentClue];
             
-            let html = '<div class="wall-header">';
-            // Always render button but hide with visibility when timer has started
-            const hideButton = wallTimerReady ? ' style="visibility: hidden;"' : '';
-            html += `<button class="back-btn" onclick="backToRounds()"${hideButton}>← Back to Rounds</button>`;
-            if (showLives) {
-                html += `<div class="lives-display">Lives: ${'❤️'.repeat(wallLives)}${'🖤'.repeat(3 - wallLives)}</div>`;
+            let html = '';
+            const hideButton = vowelsCategoryRevealed ? ' style="visibility: hidden;"' : '';
+            html += `<button class="back-btn ${!isHost() ? 'disabled' : ''}" onclick="backToRounds()"${hideButton}>← Back to Rounds</button>`;
+            
+            html += '<div class="timer-bar-container"><div id="timerBar" class="timer-bar" style="width: 100%;"></div><div id="timerText" class="timer-text">120s</div></div>';
+            
+            const allCluesComplete = vowelsCurrentClue === category.clues.length - 1 && vowelsAnswerRevealed;
+            const canAdvanceCategory = allCluesComplete && vowelsCurrentCategory < gameData.round4.length - 1;
+            const categoryDisabled = vowelsCategoryAnimating || (!canAdvanceCategory && vowelsCategoryRevealed) || !isHost();
+            const categoryClasses = 'vowels-category-box' + (categoryDisabled ? ' disabled' : '');
+            const categoryOnclick = !vowelsCategoryRevealed && isHost() ? ' onclick="revealCategoryAndStartTimer()"' : (canAdvanceCategory && !vowelsCategoryAnimating && isHost() ? ' onclick="nextVowelsCategory()"' : '');
+            const categoryText = vowelsCategoryRevealed ? category.category : '';
+            html += `<div class="${categoryClasses}"${categoryOnclick}>${categoryText}</div>`;
+            
+            html += '<div class="vowels-clue-box">';
+            if (vowelsClueRevealed) {
+                if (vowelsAnswerRevealed) {
+                    html += createAnimatedClueText(clue.withoutVowels, clue.answer, true);
+                } else {
+                    html += `<div class="vowels-clue-text">${clue.withoutVowels}</div>`;
+                    // Show answer to host only with transparency
+                    if (isHost()) {
+                        html += `<div style="font-size: 1.5rem; opacity: 0.3; color: #94a3b8; margin-top: 1rem;">${clue.answer}</div>`;
+                    }
+                }
             }
             html += '</div>';
             
-            // Render the wall grid with tiles
-            html += '<div class="wall-grid" style="position: relative; min-height: 440px;">';
-            
-            // Calculate positions for all 16 tiles
-            let positionIndex = 0;
-            const tilePositions = new Map();
-            
-            // Assign positions: solved groups first (in order solved), then unsolved
-            solvedGroups.forEach((group, groupIdx) => {
-                group.items.forEach(itemText => {
-                    const tileIndex = wallTiles.findIndex(t => t.text === itemText && t.solvedGroupIndex === groupIdx);
-                    if (tileIndex !== -1) {
-                        tilePositions.set(tileIndex, positionIndex);
-                        positionIndex++;
-                    }
-                });
-            });
-            
-            // Unsolved tiles get remaining positions
-            wallTiles.forEach((tile, index) => {
-                if (!tile.solved) {
-                    tilePositions.set(index, positionIndex);
-                    positionIndex++;
-                }
-            });
-            
-            // Render each tile with calculated position
-            wallTiles.forEach((tile, index) => {
-                const pos = tilePositions.get(index);
-                const row = Math.floor(pos / 4);
-                const col = pos % 4;
-                
-                // Calculate pixel positions (accounting for gaps)
-                const tileWidth = 'calc((100% - 2.25rem) / 4)';
-                const gapSize = 0.75; // rem
-                const topPx = row * 100 + row * 12; // 100px height + 0.75rem gap (approx 12px)
-                const leftCalc = `calc(${col} * ((100% - 2.25rem) / 4 + ${gapSize}rem))`;
-                
-                let classes = 'wall-tile';
-                const isSelected = selectedTiles.includes(index);
-                
-                // Add text-up class if this tile's group has a revealed connection
-                const hasOverlay = tile.solved && wallPhase === 'guessing' && 
-                                   connectionGuesses[tile.solvedGroupIndex] && 
-                                   connectionGuesses[tile.solvedGroupIndex].revealed;
-                if (hasOverlay) {
-                    classes += ' text-up';
-                }
-                
-                // Hide text until timer starts
-                if (!wallTimerReady) {
-                    classes += ' hidden-text';
-                }
-                
-                if (tile.solved) {
-                    classes += ' solved group-' + tile.solvedGroupIndex;
-                } else if (isSelected) {
-                    classes += ' selected';
-                } else if (wallPhase !== 'solving') {
-                    classes += ' locked';
-                }
-                
-                const onclick = (!tile.solved && wallPhase === 'solving' && wallTimerReady) ? `onclick="toggleTile(${index})"` : '';
-                const style = `top: ${topPx}px; left: ${leftCalc}; width: ${tileWidth};`;
-                
-                html += `<button class="${classes}" ${onclick} style="${style}" data-tile-id="${index}">${tile.text}</button>`;
-            });
-            
-            // In guessing phase, add overlays and buttons on the actual grid
-            if (wallPhase === 'guessing') {
-                solvedGroups.forEach((group, idx) => {
-                    const row = idx;
-                    const topPx = row * 100 + row * 12;
-                    
-                    // Connection overlay (appears in lower half of the row)
-                    if (connectionGuesses[idx] && connectionGuesses[idx].revealed) {
-                        const overlayTop = topPx + 50; // Start at middle of tile
-                        const fadeInClass = connectionGuesses[idx].justRevealed ? ' fade-in' : '';
-                        const displayStyle = connectionGuesses[idx].justRevealed ? '' : ' opacity: 1;';
-                        html += `<div class="connection-display${fadeInClass}" style="top: ${overlayTop}px;${displayStyle}">${group.connection}</div>`;
-                    }
-                    
-                    // Guess buttons (to the right of the row, side by side)
-                    if (!connectionGuesses[idx]) {
-                        // Buttons side by side, centered vertically in the row
-                        const buttonsTop = topPx + 27; // Center in 100px row (50px - 45px/2)
-                        html += `<div style="position: absolute; right: -120px; top: ${buttonsTop}px; display: flex; gap: 0.5rem;">`;
-                        html += `<button class="guess-btn correct" onclick="guessConnection(${idx}, true)">✓</button>`;
-                        html += `<button class="guess-btn incorrect" onclick="guessConnection(${idx}, false)">✗</button>`;
-                        html += '</div>';
-                    }
-                });
-            }
-            
-            html += '</div>'; // Close wall-grid
-            
-            // Show timer or start button during solving phase
-            if (wallPhase === 'solving') {
-                html += '<div class="wall-timer-container">';
-                if (!wallTimerReady) {
-                    // Show Start Timer button
-                    html += '<div style="text-align: center; padding: 1rem;">';
-                    html += '<button class="btn btn-primary" onclick="startWallTimer()" style="font-size: 1.25rem; padding: 1rem 2rem;">Start Timer</button>';
-                    html += '</div>';
-                } else {
-                    // Show timer
-                    html += '<div class="timer-bar-container"><div id="timerBar" class="timer-bar" style="width: 100%;"></div><div id="timerText" class="timer-text">180s</div></div>';
-                }
+            const buttonContainerClass = !isHost() ? 'buttons-container player-hidden' : 'buttons-container';
+            html += `<div class="${buttonContainerClass}">`;
+            // Show Correct/Incorrect buttons when timer is stopped and answer not revealed
+            if (timerStopped && !vowelsAnswerRevealed && buzzedInPlayer) {
+                html += '<div class="button-row">';
+                html += `<button class="btn btn-correct ${!isHost() ? 'disabled' : ''}" onclick="markVowelsCorrect()">Correct</button>`;
+                html += `<button class="btn btn-incorrect ${!isHost() ? 'disabled' : ''}" onclick="markVowelsIncorrect()">Incorrect</button>`;
                 html += '</div>';
-            }
-            
-            // Continue button after all guessed
-            if (wallPhase === 'guessing') {
-                const allGuessed = solvedGroups.every((_, idx) => connectionGuesses[idx]);
-                if (allGuessed) {
-                    html += '<div style="margin-top: 1.5rem; text-align: center;">';
-                    html += '<button class="btn btn-primary" onclick="backToRounds()">Continue</button>';
-                    html += '</div>';
+            } else if (vowelsAnswerRevealed) {
+                // After timeout OR after completing all clues
+                const timedOut = !vowelsClueRevealed; // If clue not revealed, it was a timeout
+                
+                if (timedOut || vowelsCurrentCategory >= gameData.round4.length - 1) {
+                    // Show End Game if timed out OR on last category
+                    html += `<button class="btn btn-primary ${!isHost() ? 'disabled' : ''}" onclick="endGame()">End Game</button>`;
+                } else if (vowelsCurrentClue < category.clues.length - 1) {
+                    // More clues in this category
+                    html += `<button class="btn btn-primary ${!isHost() ? 'disabled' : ''}" onclick="nextVowelsClue()">Next Clue</button>`;
                 }
             }
+            html += '</div>';
             
-            // Time up modal
-            if (showTimeUpModal) {
+            if (vowelsShowTimeUpModal) {
                 html += '<div class="time-up-modal">';
                 html += '<div class="time-up-content">';
                 html += '<div class="time-up-title">Time is Up</div>';
-                html += '<button class="btn btn-primary" onclick="resolveWallAfterTimeout()" style="font-size: 1.25rem; padding: 1rem 2rem;">Resolve the Wall</button>';
-                html += '</div>';
-                html += '</div>';
-            }
-            
-            // Wall frozen modal
-            if (showWallFrozenModal) {
-                html += '<div class="wall-frozen-modal">';
-                html += '<div class="wall-frozen-content">';
-                html += '<div class="wall-frozen-title">The Wall has frozen!</div>';
-                html += '<button class="btn btn-primary" onclick="resolveWallAfterFrozen()" style="font-size: 1.25rem; padding: 1rem 2rem;">Resolve the Wall</button>';
+                html += `<button class="btn btn-primary ${!isHost() ? 'disabled' : ''}" onclick="revealVowelsAnswerFromModal()" style="font-size: 1.25rem; padding: 1rem 2rem;">End Game</button>`;
                 html += '</div>';
                 html += '</div>';
             }
             
             return html;
+        }
+
+        function renderFinalScore() {
+            return `
+                <div class="final-score-container">
+                    <div class="final-score-names">${playerNames}</div>
+                    <div class="final-score-box">
+                        <div class="final-score-value">${score}</div>
+                    </div>
+                    <button class="end-session-btn ${!isHost() ? 'disabled' : ''}" onclick="endSession()">End Session</button>
+                </div>
+            `;
         }
 
         function render() {
             const container = document.getElementById('gameContainer');
             let content = '';
+
+            console.log('DEBUG render() - view:', view, 'currentRound:', currentRound);
+            
             if (view === 'rounds') content = renderRoundSelector();
             else if (view === 'questions') content = renderQuestionSelector();
             else if (view === 'clues') content = renderClues();
             else if (view === 'wall') content = renderWall();
+            else if (view === 'vowels') content = renderVowels();
+            else if (view === 'finalScore') content = renderFinalScore();
+            
+            const buzzedIndicator = buzzedInPlayer ? `<span class="buzzed-indicator">${buzzedInPlayer} buzzed!</span>` : '';
+            const headerClass = buzzedInPlayer ? 'header-title has-buzzer' : 'header-title';
+            
+            const headerHtml = view === 'finalScore' ? '' : `
+                <div class="header-card">
+                    <h1 class="${headerClass}">
+                        ${playerNames}
+                        ${buzzedIndicator}
+                    </h1>
+                    <div class="score-box">
+                        <div class="score-value">${score}</div>
+                    </div>
+                </div>
+            `;
+            
+            let categoryHtml = '';
+            if (currentCategoryName && view !== 'rounds' && view !== 'questions' && view !== 'finalScore') {
+                let displayText = currentCategoryName;
+                
+                // Add question number for Connections and Sequences rounds
+                if (view === 'clues' && currentQuestion !== null) {
+                    displayText += `<br>Question ${currentQuestion + 1}`;
+                }
+                
+                categoryHtml = `<div class="category-display">${displayText}</div>`;
+            }
+            
+            const setupModalHtml = renderSetupModal();
             
             container.innerHTML = `
                 <div class="game-container">
-                    <div class="header-card">
-                        <h1 class="header-title">Only Connect</h1>
-                        <div class="score-box">
-                            <div class="score-label">Player Name</div>
-                            <div class="score-value">${score}</div>
-                        </div>
-                    </div>
+                    ${headerHtml}
+                    ${categoryHtml}
                     ${content}
                 </div>
+                ${setupModalHtml}
             `;
+            
+            // After innerHTML is set, if we're in wall view
+            if (view === 'wall' && wallPhase === 'solving') {
+                // Store initial positions before any position updates
+                const tiles = document.querySelectorAll('.wall-tile');
+                const initialPositions = new Map();
+                
+                tiles.forEach(tile => {
+                    const rect = tile.getBoundingClientRect();
+                    const id = tile.getAttribute('data-tile-id');
+                    initialPositions.set(id, { top: rect.top, left: rect.left });
+                });
+                
+                // Calculate target positions based on solved groups
+                requestAnimationFrame(() => {
+                    let positionIndex = 0;
+                    const targetPositions = new Map();
+                    
+                    // Solved groups first
+                    solvedGroups.forEach((group) => {
+                        group.tiles.forEach(tileId => {
+                            targetPositions.set(tileId, positionIndex);
+                            positionIndex++;
+                        });
+                    });
+                    
+                    // Unsolved tiles
+                    wallTiles.forEach((tile) => {
+                        if (!tile.solved) {
+                            targetPositions.set(tile.id, positionIndex);
+                            positionIndex++;
+                        }
+                    });
+                    
+                    // Animate tiles that need to move
+                    tiles.forEach(tile => {
+                        const id = tile.getAttribute('data-tile-id');
+                        const targetPos = targetPositions.get(id);
+                        
+                        if (targetPos !== undefined) {
+                            const oldPos = initialPositions.get(id);
+                            
+                            const targetRow = Math.floor(targetPos / 4);
+                            const targetCol = targetPos % 4;
+                            const targetTop = targetRow * 112;
+                            const targetLeftPercent = targetCol * 25;
+                            
+                            // Get the actual pixel position for the target
+                            const container = tile.parentElement;
+                            const containerWidth = container.offsetWidth;
+                            const targetLeftPx = (targetLeftPercent / 100) * containerWidth;
+                            
+                            // Calculate current position in pixels
+                            const currentRect = tile.getBoundingClientRect();
+                            const containerRect = container.getBoundingClientRect();
+                            const currentTop = currentRect.top - containerRect.top;
+                            const currentLeft = currentRect.left - containerRect.left;
+                            
+                            // Check if position actually changed
+                            const topChanged = Math.abs(currentTop - targetTop) > 1;
+                            const leftChanged = Math.abs(currentLeft - targetLeftPx) > 1;
+                            
+                            if (topChanged || leftChanged) {
+                                // Position changed, animate from current to target
+                                const deltaY = currentTop - targetTop;
+                                const deltaX = currentLeft - targetLeftPx;
+                                
+                                tile.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+                                tile.style.transition = 'none';
+                                
+                                // Force reflow
+                                tile.offsetHeight;
+                                
+                                // Animate to target position
+                                tile.style.transition = 'transform 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+                                tile.style.transform = '';
+                                
+                                // Update the actual position after animation
+                                setTimeout(() => {
+                                    tile.style.top = targetTop + 'px';
+                                    tile.style.left = targetLeftPercent + '%';
+                                }, 800);
+                            }
+                        }
+                    });
+                });
+            }
+
             if (view === 'clues' && timerStartTime !== null) updateTimer();
             if (view === 'wall' && wallPhase === 'solving' && timerStartTime !== null) updateTimer();
+            if (view === 'vowels' && timerStartTime !== null) updateTimer();
+
+            // After render, update timer display if it's stopped
+            if (timerStopped && timerRemainingWhenStopped !== null) {
+                updateTimerDisplay(timerRemainingWhenStopped);
+            }
         }
 
+        // Initialize
         render();
     </script>
 </body>
