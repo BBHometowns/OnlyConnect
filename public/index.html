@@ -2121,32 +2121,40 @@
         }
 
         function rearrangeTiles() {
-            // Store old positions for animation
-            wallTiles.forEach(tile => {
-                const element = document.querySelector(`[data-tile-id="${tile.id}"]`);
-                if (element) {
-                    const rect = element.getBoundingClientRect();
-                    wallAnimations.set(tile.id, { oldTop: rect.top, oldLeft: rect.left });
-                }
-            });
-            
-            // Calculate new positions
+            // Calculate new positions FIRST
             let newPosition = 0;
+            const newPositions = new Map();
             
-            // First, position solved groups
-            solvedGroups.forEach((group, groupIdx) => {
+            // Position solved groups first
+            solvedGroups.forEach((group) => {
                 group.tiles.forEach(tileId => {
                     const tile = wallTiles.find(t => t.id === tileId);
-                    tile.position = newPosition++;
+                    if (tile) {
+                        newPositions.set(tile.id, newPosition);
+                        newPosition++;
+                    }
                 });
             });
             
             // Then position unsolved tiles
             wallTiles.forEach(tile => {
                 if (!tile.solved) {
-                    tile.position = newPosition++;
+                    newPositions.set(tile.id, newPosition);
+                    newPosition++;
                 }
             });
+            
+            // Update tile positions
+            wallTiles.forEach(tile => {
+                const newPos = newPositions.get(tile.id);
+                if (newPos !== undefined) {
+                    tile.position = newPos;
+                }
+            });
+            
+            // Trigger render which will handle animation via CSS
+            syncGameState();
+            render();
         }
 
         function autoSolveLastGroup() {
@@ -2245,7 +2253,7 @@
                         html += `<div class="connection-display${fadeInClass}" style="top: ${overlayTop}px;${displayStyle}">${group.connection}</div>`;
                     } else if (!connectionGuesses[idx] && isHost()) {
                         const buttonsTop = row * 112 + 27;
-                        html += `<div style="position: absolute; left: 50%; top: ${buttonsTop}px; transform: translateX(-50%); display: flex; gap: 1rem; z-index: 20;">`;
+                        html += `<div style="position: absolute; right: -120px; top: ${buttonsTop}px; display: flex; gap: 0.5rem;">`;
                         html += `<button class="guess-btn correct" onclick="guessConnection(${idx}, true)">✓</button>`;
                         html += `<button class="guess-btn incorrect" onclick="guessConnection(${idx}, false)">✗</button>`;
                         html += '</div>';
