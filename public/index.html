@@ -2021,20 +2021,34 @@
         }
 
         function checkGroup() {
-            if (!isHost() || selectedTiles.length !== 4) return;
+            console.log('DEBUG checkGroup called - isHost:', isHost(), 'selectedTiles.length:', selectedTiles.length);
+            
+            if (!isHost() || selectedTiles.length !== 4) {
+                console.log('DEBUG checkGroup blocked');
+                return;
+            }
+            
+            console.log('DEBUG Checking group with tiles:', selectedTiles);
             
             // Get the group indices of selected tiles
             const selectedGroups = selectedTiles.map(id => {
                 const tile = wallTiles.find(t => t.id === id);
-                return tile.groupIndex;
+                console.log('DEBUG Tile:', id, 'groupIndex:', tile ? tile.groupIndex : 'NOT FOUND');
+                return tile ? tile.groupIndex : -1;
             });
             
+            console.log('DEBUG selectedGroups:', selectedGroups);
+            
             // Check if all same group
-            const isCorrect = selectedGroups.every(g => g === selectedGroups[0]);
+            const isCorrect = selectedGroups.every(g => g === selectedGroups[0] && g !== -1);
+            
+            console.log('DEBUG isCorrect:', isCorrect);
             
             if (isCorrect) {
+                console.log('DEBUG Handling correct group');
                 handleCorrectGroup();
             } else {
+                console.log('DEBUG Handling incorrect group');
                 handleIncorrectGroup();
             }
         }
