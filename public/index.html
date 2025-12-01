@@ -2071,16 +2071,23 @@
             const groupIndex = wallTiles.find(t => t.id === selectedTiles[0]).groupIndex;
             const wallData = gameData.round3[0];
             
+            // Sort selected tiles alphabetically before marking as solved
+            const sortedSelectedTiles = selectedTiles.slice().sort((aId, bId) => {
+                const tileA = wallTiles.find(t => t.id === aId);
+                const tileB = wallTiles.find(t => t.id === bId);
+                return tileA.text.localeCompare(tileB.text);
+            });
+            
             // Mark tiles as solved
-            selectedTiles.forEach(tileId => {
+            sortedSelectedTiles.forEach(tileId => {
                 const tile = wallTiles.find(t => t.id === tileId);
                 tile.solved = true;
                 tile.solvedGroupIndex = solvedGroups.length;
             });
             
-            // Add to solved groups
+            // Add to solved groups with sorted tiles
             solvedGroups.push({
-                tiles: selectedTiles.slice(),
+                tiles: sortedSelectedTiles,
                 groupIndex: groupIndex,
                 connection: wallData.groups[groupIndex].connection
             });
@@ -2164,13 +2171,16 @@
             if (unsolvedTiles.length === 4) {
                 const groupIndex = unsolvedTiles[0].groupIndex;
                 
-                unsolvedTiles.forEach(tile => {
+                // Sort the unsolved tiles alphabetically
+                const sortedUnsolvedTiles = unsolvedTiles.slice().sort((a, b) => a.text.localeCompare(b.text));
+                
+                sortedUnsolvedTiles.forEach(tile => {
                     tile.solved = true;
                     tile.solvedGroupIndex = solvedGroups.length;
                 });
                 
                 solvedGroups.push({
-                    tiles: unsolvedTiles.map(t => t.id),
+                    tiles: sortedUnsolvedTiles.map(t => t.id),
                     groupIndex: groupIndex,
                     connection: wallData.groups[groupIndex].connection
                 });
@@ -2250,9 +2260,8 @@
                     const hasBeenGuessed = connectionGuesses[idx] && connectionGuesses[idx].revealed;
 
                     if (hasBeenGuessed) {
-                        const fadeInClass = connectionGuesses[idx].justRevealed ? ' fade-in' : '';
-                        const displayStyle = connectionGuesses[idx].justRevealed ? '' : ' opacity: 1;';
-                        html += `<div class="connection-display${fadeInClass}" style="top: ${top}px;${displayStyle}">${group.connection}</div>`;
+                        // Always show with full opacity if already revealed, no animation
+                        html += `<div class="connection-display" style="top: ${top}px; opacity: 1;">${group.connection}</div>`;
                     }
 
                     if (!hasBeenGuessed && isHost()) {
@@ -2300,11 +2309,10 @@
         function guessConnection(groupIndex, isCorrect) {
             if (!isHost()) return;
             
-            // Mark this specific guess with revealed flag
+            // Mark this specific guess with revealed flag (no justRevealed flag needed)
             connectionGuesses[groupIndex] = { 
                 correct: isCorrect, 
-                revealed: true,
-                justRevealed: true  // Flag for animation
+                revealed: true
             };
             
             if (isCorrect) score += 1;
@@ -2321,12 +2329,6 @@
             
             syncGameState();
             render();
-            
-            // Remove the justRevealed flag after animation
-            setTimeout(() => {
-                connectionGuesses[groupIndex].justRevealed = false;
-                syncGameState();
-            }, 1000);
         }
 
         function renderWallTimeUpModal() {
@@ -2370,13 +2372,17 @@
             for (let g = 0; g < 4; g++) {
                 if (!solvedGroups.some(sg => sg.groupIndex === g)) {
                     const tiles = wallTiles.filter(t => t.groupIndex === g && !t.solved);
-                    tiles.forEach(t => {
+                    
+                    // Sort tiles alphabetically before marking as solved
+                    const sortedTiles = tiles.slice().sort((a, b) => a.text.localeCompare(b.text));
+                    
+                    sortedTiles.forEach(t => {
                         t.solved = true;
                         t.solvedGroupIndex = solvedGroups.length;
                     });
                     
                     solvedGroups.push({
-                        tiles: tiles.map(t => t.id),
+                        tiles: sortedTiles.map(t => t.id),
                         groupIndex: g,
                         connection: wallData.groups[g].connection,
                         autoSolved: true
