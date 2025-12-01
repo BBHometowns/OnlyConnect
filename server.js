@@ -155,6 +155,17 @@ io.on('connection', (socket) => {
             action: action
         });
     });
+    
+    // Player clicked a tile
+    socket.on('playerClickedTile', (data) => {
+        const session = gameSessions.get(socket.gameCode);
+        if (!session || socket.role === 'host') return;
+
+        console.log('Server forwarding playerClickedTile from', socket.playerName, ':', data);
+
+        // Send to all clients in the room (including the player who clicked)
+        io.to(socket.gameCode).emit('playerClickedTile', data);
+    });
 
     // Disconnect
     socket.on('disconnect', () => {
