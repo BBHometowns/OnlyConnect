@@ -1979,27 +1979,43 @@
 
             // Players send request to host
             if (isPlayer() && wallPhase === 'solving') {
-                socket.emit('wallAction', { action: { type: 'toggleTile', tileId } });
+                console.log('DEBUG Player emitting wallAction with tileId:', tileId);
+                socket.emit('wallAction', { action: { type: 'toggleTile', tileId: tileId } });
                 return;
             }
             
             // Host processes the toggle
-            if (!isHost() || wallPhase !== 'solving' || timerStopped) return;
+            if (!isHost() || wallPhase !== 'solving' || timerStopped) {
+                console.log('DEBUG Host toggle blocked - isHost:', isHost(), 'wallPhase:', wallPhase, 'timerStopped:', timerStopped);
+                return;
+            }
+            
+            console.log('DEBUG Host processing toggle for tileId:', tileId);
+            console.log('DEBUG wallTiles:', wallTiles);
             
             const tile = wallTiles.find(t => t.id === tileId);
-            if (!tile || tile.solved) return;
+            console.log('DEBUG Found tile:', tile);
+            
+            if (!tile || tile.solved) {
+                console.log('DEBUG Tile not found or already solved');
+                return;
+            }
             
             const selectedIndex = selectedTiles.findIndex(id => id === tileId);
+            console.log('DEBUG selectedIndex:', selectedIndex, 'selectedTiles:', selectedTiles);
             
             if (selectedIndex > -1) {
                 // Deselect
                 selectedTiles.splice(selectedIndex, 1);
+                console.log('DEBUG Deselected tile, new selectedTiles:', selectedTiles);
             } else if (selectedTiles.length < 4) {
                 // Select
                 selectedTiles.push(tileId);
+                console.log('DEBUG Selected tile, new selectedTiles:', selectedTiles);
                 
                 // Auto-check when 4 selected
                 if (selectedTiles.length === 4) {
+                    console.log('DEBUG Auto-checking group');
                     setTimeout(checkGroup, 300);
                 }
             }
