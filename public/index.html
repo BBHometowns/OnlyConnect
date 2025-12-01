@@ -2239,11 +2239,13 @@
                     const row = idx;
                     const top = row * 112 + 50;
                     
-                    if (connectionGuesses[idx]) {
-                        html += `<div class="connection-display fade-in" style="top: ${top}px; opacity: 1;">${group.connection}</div>`;
-                    } else if (isHost()) {
+                    if (connectionGuesses[idx] && connectionGuesses[idx].revealed) {
+                        const fadeInClass = connectionGuesses[idx].justRevealed ? ' fade-in' : '';
+                        const displayStyle = connectionGuesses[idx].justRevealed ? '' : ' opacity: 1;';
+                        html += `<div class="connection-display${fadeInClass}" style="top: ${overlayTop}px;${displayStyle}">${group.connection}</div>`;
+                    } else if (!connectionGuesses[idx] && isHost()) {
                         const buttonsTop = row * 112 + 27;
-                        html += `<div style="position: absolute; right: -60px; top: ${buttonsTop}px;">`;
+                        html += `<div style="position: absolute; left: 50%; top: ${buttonsTop}px; transform: translateX(-50%); display: flex; gap: 1rem; z-index: 20;">`;
                         html += `<button class="guess-btn correct" onclick="guessConnection(${idx}, true)">✓</button>`;
                         html += `<button class="guess-btn incorrect" onclick="guessConnection(${idx}, false)">✗</button>`;
                         html += '</div>';
@@ -2286,12 +2288,18 @@
         function guessConnection(groupIndex, isCorrect) {
             if (!isHost()) return;
             
-            connectionGuesses[groupIndex] = isCorrect;
+            // Mark this specific guess with revealed flag
+            connectionGuesses[groupIndex] = { 
+                correct: isCorrect, 
+                revealed: true,
+                justRevealed: true  // Flag for animation
+            };
+            
             if (isCorrect) score += 1;
             
             // Check for bonus
             if (Object.keys(connectionGuesses).length === 4) {
-                const allCorrect = Object.values(connectionGuesses).every(v => v);
+                const allCorrect = Object.values(connectionGuesses).every(v => v.correct);
                 const allFound = solvedGroups.every(g => !g.autoSolved);
                 
                 if (allCorrect && allFound) {
@@ -2301,6 +2309,12 @@
             
             syncGameState();
             render();
+            
+            // Remove the justRevealed flag after animation
+            setTimeout(() => {
+                connectionGuesses[groupIndex].justRevealed = false;
+                syncGameState();
+            }, 1000);
         }
 
         function renderWallTimeUpModal() {
