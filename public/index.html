@@ -1435,7 +1435,7 @@
         
         function stopTimer() {
             // First, capture the remaining time BEFORE clearing anything
-            if (timerStartTime && timerRemainingWhenStopped === null) {
+            if (timerStartTime && !timerStopped) {
                 const elapsed = timerElapsedWhenStopped + (Date.now() - timerStartTime);
                 timerRemainingWhenStopped = Math.max(0, timerDuration - elapsed);
             }
@@ -1454,8 +1454,8 @@
             
             timerStopped = true;
             
-            // Record which clue the timer stopped on
-            if (timerStoppedOnClue === null) {
+            // Record which clue the timer stopped on (for clues view)
+            if (view === 'clues' && timerStoppedOnClue === null) {
                 timerStoppedOnClue = Math.max(0, cluesRevealed - 1);
             }
             
@@ -1761,16 +1761,9 @@
             
             score += 1;
             vowelsAnswerRevealed = true;
+            buzzedInPlayer = null;  // Clear the buzzer
             
-            // Restart timer from where it stopped
-            if (timerStopped) {
-                timerStopped = false;
-                timerStartTime = Date.now();
-                // timerElapsedWhenStopped already has the right value
-                if (!timerInterval) {
-                    timerInterval = setInterval(updateTimer, 100);
-                }
-            }
+            // DON'T restart timer here - it will restart when next clue is revealed
             
             setTimeout(() => {
                 const clueElement = document.querySelector('.vowels-clue-text');
@@ -1793,16 +1786,9 @@
             if (!isHost()) return;
             
             vowelsAnswerRevealed = true;
+            buzzedInPlayer = null;  // Clear the buzzer
             
-            // Restart timer from where it stopped
-            if (timerStopped) {
-                timerStopped = false;
-                timerStartTime = Date.now();
-                // timerElapsedWhenStopped already has the right value
-                if (!timerInterval) {
-                    timerInterval = setInterval(updateTimer, 100);
-                }
-            }
+            // DON'T restart timer here - it will restart when next clue is revealed
             
             setTimeout(() => {
                 const clueElement = document.querySelector('.vowels-clue-text');
@@ -1832,13 +1818,22 @@
                 vowelsAnswerRevealed = false;
                 buzzedInPlayer = null;  // Clear buzzer for next clue
                 
-                // Timer continues running automatically after markCorrect/Incorrect resumed it
+                // Restart the timer from where it was stopped
+                if (timerStopped) {
+                    timerStopped = false;
+                    timerStartTime = Date.now();
+                    timerRemainingWhenStopped = null;  // Clear the frozen time
+                    // timerElapsedWhenStopped keeps its value to continue from where we left off
+                    if (!timerInterval) {
+                        timerInterval = setInterval(updateTimer, 100);
+                    }
+                }
                 
                 broadcastAction('nextVowelsClue');
                 syncGameState();
                 render();
             } else {
-                // End of category
+                // End of category - stop timer and show category complete state
                 stopTimer();
                 vowelsClueRevealed = false;
                 vowelsAnswerRevealed = false;
@@ -1853,6 +1848,8 @@
             if (!isHost()) return;
             
             const category = gameData.round4[vowelsCurrentCategory];
+            
+            // Only advance if we've completed all clues in current category
             if (vowelsCurrentClue !== category.clues.length - 1 || !vowelsAnswerRevealed) {
                 return;
             }
@@ -1864,6 +1861,7 @@
                 vowelsCategoryAnimating = true;
                 vowelsClueRevealed = false;
                 vowelsAnswerRevealed = false;
+                buzzedInPlayer = null;
                 
                 syncGameState();
                 render();
@@ -1872,10 +1870,15 @@
                     vowelsCategoryAnimating = false;
                     vowelsClueRevealed = true;
                     
-                    // Don't reset the timer - just continue from where it was
-                    if (timerInterval === null && timerStartTime !== null) {
-                        // Resume the timer if it was running
-                        timerInterval = setInterval(updateTimer, 100);
+                    // Restart timer from where it left off
+                    if (timerStopped) {
+                        timerStopped = false;
+                        timerStartTime = Date.now();
+                        timerRemainingWhenStopped = null;
+                        // timerElapsedWhenStopped keeps its value
+                        if (!timerInterval) {
+                            timerInterval = setInterval(updateTimer, 100);
+                        }
                     }
                     
                     broadcastAction('nextVowelsCategory');
@@ -2897,11 +2900,15 @@
             
             html += '<div class="timer-bar-container"><div id="timerBar" class="timer-bar" style="width: 100%;"></div><div id="timerText" class="timer-text">120s</div></div>';
             
-            const allCluesComplete = vowelsCurrentClue === category.clues.length - 1 && vowelsAnswerRevealed;
-            const canAdvanceCategory = allCluesComplete && vowelsCurrentCategory < gameData.round4.length - 1;
-            const categoryDisabled = vowelsCategoryAnimating || (!canAdvanceCategory && vowelsCategoryRevealed) || !isHost();
+            // Check if current category is complete (all clues answered)
+            const categoryComplete = vowelsCurrentClue === category.clues.length - 1 && vowelsAnswerRevealed;
+            const isLastCategory = vowelsCurrentCategory === gameData.round4.length - 1;
+            const canAdvanceCategory = categoryComplete && !isLastCategory;
+            
+            // Category box - clickable only for first category reveal
+            const categoryDisabled = vowelsCategoryAnimating || vowelsCategoryRevealed || !isHost();
             const categoryClasses = 'vowels-category-box' + (categoryDisabled ? ' disabled' : '');
-            const categoryOnclick = !vowelsCategoryRevealed && isHost() ? ' onclick="revealCategoryAndStartTimer()"' : (canAdvanceCategory && !vowelsCategoryAnimating && isHost() ? ' onclick="nextVowelsCategory()"' : '');
+            const categoryOnclick = !vowelsCategoryRevealed && isHost() ? ' onclick="revealCategoryAndStartTimer()"' : '';
             const categoryText = vowelsCategoryRevealed ? category.category : '';
             html += `<div class="${categoryClasses}"${categoryOnclick}>${categoryText}</div>`;
             
@@ -2921,26 +2928,32 @@
             
             const buttonContainerClass = !isHost() ? 'buttons-container player-hidden' : 'buttons-container';
             html += `<div class="${buttonContainerClass}">`;
+            
             // Show Correct/Incorrect buttons when timer is stopped and answer not revealed
             if (timerStopped && !vowelsAnswerRevealed && buzzedInPlayer) {
                 html += '<div class="button-row">';
                 html += `<button class="btn btn-correct ${!isHost() ? 'disabled' : ''}" onclick="markVowelsCorrect()">Correct</button>`;
                 html += `<button class="btn btn-incorrect ${!isHost() ? 'disabled' : ''}" onclick="markVowelsIncorrect()">Incorrect</button>`;
                 html += '</div>';
-            } else if (vowelsAnswerRevealed) {
-                // After timeout OR after completing all clues
-                const timedOut = !vowelsClueRevealed; // If clue not revealed, it was a timeout
-                
-                if (timedOut || vowelsCurrentCategory >= gameData.round4.length - 1) {
-                    // Show End Game if timed out OR on last category
-                    html += `<button class="btn btn-primary ${!isHost() ? 'disabled' : ''}" onclick="endGame()">End Game</button>`;
-                } else if (vowelsCurrentClue < category.clues.length - 1) {
-                    // More clues in this category
+            } 
+            // After answer is revealed
+            else if (vowelsAnswerRevealed) {
+                // Check if there are more clues in this category
+                if (vowelsCurrentClue < category.clues.length - 1) {
+                    // More clues in this category - show Next Clue button
                     html += `<button class="btn btn-primary ${!isHost() ? 'disabled' : ''}" onclick="nextVowelsClue()">Next Clue</button>`;
+                } else if (canAdvanceCategory) {
+                    // Finished this category, but more categories exist - show Next Category button
+                    html += `<button class="btn btn-primary ${!isHost() ? 'disabled' : ''}" onclick="nextVowelsCategory()">Next Category</button>`;
+                } else if (isLastCategory && categoryComplete) {
+                    // Finished last category - show End Game button
+                    html += `<button class="btn btn-primary ${!isHost() ? 'disabled' : ''}" onclick="endGame()">End Game</button>`;
                 }
             }
+            
             html += '</div>';
             
+            // Time up modal
             if (vowelsShowTimeUpModal) {
                 html += '<div class="time-up-modal">';
                 html += '<div class="time-up-content">';
