@@ -1759,7 +1759,12 @@
         function markVowelsCorrect() {
             if (!isHost()) return;
             
+            console.log('DEBUG markVowelsCorrect called');
+            console.log('Timer stopped:', timerStopped);
+            console.log('Buzzer cleared');
+            
             score += 1;
+            // ... rest of function
             vowelsAnswerRevealed = true;
             buzzedInPlayer = null;  // Clear the buzzer
             
@@ -1810,7 +1815,15 @@
         function nextVowelsClue() {
             if (!isHost()) return;
             
+            console.log('DEBUG nextVowelsClue called');
+            console.log('Current category:', vowelsCurrentCategory);
+            console.log('Current clue:', vowelsCurrentClue);
+            console.log('Timer stopped:', timerStopped);
+            console.log('Timer elapsed when stopped:', timerElapsedWhenStopped);
+            console.log('Timer remaining when stopped:', timerRemainingWhenStopped);
+            
             const category = gameData.round4[vowelsCurrentCategory];
+            // ... rest of function
             
             if (vowelsCurrentClue < category.clues.length - 1) {
                 vowelsCurrentClue++;
