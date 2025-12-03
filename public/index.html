@@ -44,9 +44,7 @@
         .header-title.has-buzzer {
             display: flex;
             align-items: center;
-            justify-content: center;
             gap: 1rem;
-            flex-direction: column;
         }
 
         .buzzed-indicator {
@@ -1505,6 +1503,8 @@
         function selectRound(roundIndex) {
             if (!isHost()) return;
             
+            console.log('DEBUG selectRound called with roundIndex:', roundIndex);
+            
             currentRound = roundIndex;
             
             // Reset all modals when switching rounds
@@ -1513,21 +1513,32 @@
             showWallFrozenModal = false;
             vowelsShowTimeUpModal = false;
             
+            // Clear question state when changing rounds
+            currentQuestion = null;
+            cluesRevealed = 0;
+            answerRevealed = false;
+            timerStopped = false;
+            timerStoppedOnClue = null;
+            timerRemainingWhenStopped = null;
+            buzzedInPlayer = null;
+            resetTimer();
+            
             if (roundIndex === 2) {
-                initializeWall();
+                console.log('DEBUG Initializing Round 3: Wall');
                 view = 'wall';
                 currentCategoryName = "Connecting Wall";
+                initializeWall();
             } else if (roundIndex === 3) {
-                initializeVowels();
+                console.log('DEBUG Initializing Round 4: Vowels');
                 view = 'vowels';
                 currentCategoryName = "Missing Vowels";
+                initializeVowels();
             } else {
                 // For rounds 0 (Connections) and 1 (Sequences)
+                console.log('DEBUG Initializing Round', roundIndex, '(Questions)');
                 view = 'questions';
-                // Reset question state
-                currentQuestion = null;
-                cluesRevealed = 0;
-                answerRevealed = false;
+                currentCategoryName = '';
+                
                 // Set sequential index based on completed questions
                 const questionsInRound = roundIndex === 0 ? gameData.round1.length : gameData.round2.length;
                 sequentialQuestionIndex = 0;
@@ -1540,6 +1551,8 @@
                     }
                 }
             }
+            
+            console.log('DEBUG After selectRound - view:', view, 'currentRound:', currentRound, 'currentCategoryName:', currentCategoryName);
             
             broadcastAction('selectRound', [roundIndex]);
             syncGameState();
@@ -1663,13 +1676,13 @@
         function completeQuestion() {
             if (!isHost()) return;
             
+            console.log('DEBUG completeQuestion - currentRound:', currentRound, 'currentQuestion:', currentQuestion);
+            
             const isExample = currentQuestion === 'example';
             const questionKey = isExample ? `r${currentRound}qExample` : `r${currentRound}q${currentQuestion}`;
             if (!completedQuestions.includes(questionKey)) {
                 completedQuestions.push(questionKey);
             }
-            
-            sequentialQuestionIndex++;
             
             // Reset all modals when completing a question
             showCluesTimeUpModal = false;
@@ -1683,39 +1696,33 @@
             // Auto-advance logic
             const questionsInCurrentRound = currentRound === 0 ? gameData.round1.length : gameData.round2.length;
             
+            console.log('DEBUG questionsInCurrentRound:', questionsInCurrentRound);
+            console.log('DEBUG isExample:', isExample);
+            
             if (isExample) {
                 // After example, move to first real question
+                console.log('DEBUG Moving from example to first question');
                 selectQuestion(0);
             } else if (currentQuestion < questionsInCurrentRound - 1) {
                 // Move to next question in same round
+                console.log('DEBUG Moving to next question:', currentQuestion + 1);
                 selectQuestion(currentQuestion + 1);
             } else {
-                // Finished round - reset states before moving to next round
-                currentQuestion = null;
-                cluesRevealed = 0;
-                answerRevealed = false;
-                timerStopped = false;
-                timerStoppedOnClue = null;
-                timerRemainingWhenStopped = null;
-                buzzedInPlayer = null;
-                resetTimer();
+                // Finished round
+                console.log('DEBUG Finished round', currentRound, '- moving to next round');
                 
-                // Move to next round
                 if (currentRound === 0) {
                     // Move from Round 1 to Round 2
-                    currentRound = 1;
-                    view = 'questions';
-                    currentCategoryName = '';
+                    console.log('DEBUG Moving from Round 1 to Round 2');
                     sequentialQuestionIndex = 0;
-                    
-                    broadcastAction('selectRound', [1]);
-                    syncGameState();
-                    render();
+                    selectRound(1);
                 } else if (currentRound === 1) {
                     // Move from Round 2 to Round 3 (Wall)
+                    console.log('DEBUG Moving from Round 2 to Round 3 (Wall)');
                     selectRound(2);
                 } else {
                     // Shouldn't happen with current flow, but fallback
+                    console.log('DEBUG Unexpected round completion - going back to rounds');
                     backToRounds();
                 }
             }
@@ -3176,14 +3183,12 @@
             else if (view === 'vowels') content = renderVowels();
             else if (view === 'finalScore') content = renderFinalScore();
             
-            const buzzedIndicator = buzzedInPlayer ? `<span class="buzzed-indicator">${buzzedInPlayer} buzzed in!</span>` : '';
+            const buzzedIndicator = buzzedInPlayer ? `<div style="position: absolute; left: 50%; transform: translateX(-50%);"><span class="buzzed-indicator">${buzzedInPlayer} buzzed in!</span></div>` : '';
 
             const headerHtml = view === 'finalScore' ? '' : `
-                <div class="header-card">
-                    <div style="display: flex; flex-direction: column; align-items: center; gap: 0.75rem; flex: 1;">
-                        <h1 class="header-title">${playerNames}</h1>
-                        ${buzzedIndicator}
-                    </div>
+                <div class="header-card" style="position: relative;">
+                    <h1 class="header-title">${playerNames}</h1>
+                    ${buzzedIndicator}
                     <div class="score-box">
                         <div class="score-value">${score}</div>
                     </div>
