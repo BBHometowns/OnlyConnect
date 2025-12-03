@@ -44,19 +44,23 @@
         .header-title.has-buzzer {
             display: flex;
             align-items: center;
+            justify-content: center;
             gap: 1rem;
+            flex-direction: column;
         }
 
         .buzzed-indicator {
             display: inline-block;
             color: #fbbf24;
-            font-size: 1rem;
-            font-weight: 600;
-            padding: 0.5rem 1rem;
+            font-size: 1.5rem;
+            font-weight: 700;
+            padding: 0.75rem 2rem;
             background: rgba(251, 191, 36, 0.3);
             border: 2px solid rgba(251, 191, 36, 0.6);
             border-radius: 0.5rem;
             animation: pulseGlow 1s ease-in-out infinite;
+            text-align: center;
+            min-width: 200px;
         }
 
         @keyframes pulseGlow {
@@ -1686,15 +1690,27 @@
                 // Move to next question in same round
                 selectQuestion(currentQuestion + 1);
             } else {
-                // Finished round, move to next round
-                // Reset currentQuestion to null before advancing
+                // Finished round - reset states before moving to next round
                 currentQuestion = null;
                 cluesRevealed = 0;
                 answerRevealed = false;
+                timerStopped = false;
+                timerStoppedOnClue = null;
+                timerRemainingWhenStopped = null;
+                buzzedInPlayer = null;
+                resetTimer();
                 
+                // Move to next round
                 if (currentRound === 0) {
                     // Move from Round 1 to Round 2
-                    selectRound(1);
+                    currentRound = 1;
+                    view = 'questions';
+                    currentCategoryName = '';
+                    sequentialQuestionIndex = 0;
+                    
+                    broadcastAction('selectRound', [1]);
+                    syncGameState();
+                    render();
                 } else if (currentRound === 1) {
                     // Move from Round 2 to Round 3 (Wall)
                     selectRound(2);
@@ -3160,15 +3176,14 @@
             else if (view === 'vowels') content = renderVowels();
             else if (view === 'finalScore') content = renderFinalScore();
             
-            const buzzedIndicator = buzzedInPlayer ? `<span class="buzzed-indicator">${buzzedInPlayer} buzzed!</span>` : '';
-            const headerClass = buzzedInPlayer ? 'header-title has-buzzer' : 'header-title';
-            
+            const buzzedIndicator = buzzedInPlayer ? `<span class="buzzed-indicator">${buzzedInPlayer} buzzed in!</span>` : '';
+
             const headerHtml = view === 'finalScore' ? '' : `
                 <div class="header-card">
-                    <h1 class="${headerClass}">
-                        ${playerNames}
+                    <div style="display: flex; flex-direction: column; align-items: center; gap: 0.75rem; flex: 1;">
+                        <h1 class="header-title">${playerNames}</h1>
                         ${buzzedIndicator}
-                    </h1>
+                    </div>
                     <div class="score-box">
                         <div class="score-value">${score}</div>
                     </div>
