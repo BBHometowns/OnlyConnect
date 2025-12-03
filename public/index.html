@@ -2446,32 +2446,10 @@
             // Wall grid
             html += '<div class="wall-grid" style="position: relative; min-height: 440px;">';
             
-            // Calculate positions for all 16 tiles
-            let positionIndex = 0;
-            const tilePositions = new Map();
-            
-            // Assign positions: solved groups first (in order solved), then unsolved
-            solvedGroups.forEach((group, groupIdx) => {
-                group.items.forEach(itemText => {
-                    const tileIndex = wallTiles.findIndex(t => t.text === itemText && t.solvedGroupIndex === groupIdx);
-                    if (tileIndex !== -1) {
-                        tilePositions.set(tileIndex, positionIndex);
-                        positionIndex++;
-                    }
-                });
-            });
-            
-            // Unsolved tiles get remaining positions
-            wallTiles.forEach((tile, index) => {
-                if (!tile.solved) {
-                    tilePositions.set(index, positionIndex);
-                    positionIndex++;
-                }
-            });
-            
             // Render each tile with calculated position
-            wallTiles.forEach((tile, index) => {
-                const pos = tilePositions.get(index);
+            wallTiles.forEach((tile) => {
+                // Use tile.position directly (which was set during shuffle/rearrange)
+                const pos = tile.position;
                 const row = Math.floor(pos / 4);
                 const col = pos % 4;
                 
@@ -2482,7 +2460,7 @@
                 const leftCalc = `calc(${col} * ((100% - 2.25rem) / 4 + ${gapSize}rem))`;
                 
                 let classes = 'wall-tile';
-                const isSelected = selectedTiles.includes(index);
+                const isSelected = selectedTiles.includes(tile.id); // Use tile.id, not index
                 
                 // Add text-up class if this tile's group has a revealed connection
                 const hasOverlay = tile.solved && wallPhase === 'guessing' && 
