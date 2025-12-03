@@ -49,11 +49,12 @@
 
         .buzzed-indicator {
             display: inline-block;
-            color: #60a5fa;
+            color: #fbbf24;
             font-size: 1rem;
             font-weight: 600;
             padding: 0.5rem 1rem;
-            background: rgba(59, 130, 246, 0.2);
+            background: rgba(251, 191, 36, 0.3);
+            border: 2px solid rgba(251, 191, 36, 0.6);
             border-radius: 0.5rem;
             animation: pulseGlow 1s ease-in-out infinite;
         }
@@ -61,11 +62,13 @@
         @keyframes pulseGlow {
             0%, 100% {
                 opacity: 1;
-                text-shadow: 0 0 10px rgba(59, 130, 246, 0.7);
+                text-shadow: 0 0 10px rgba(251, 191, 36, 0.8);
+                background: rgba(251, 191, 36, 0.3);
             }
             50% {
-                opacity: 0.85;
-                text-shadow: 0 0 20px rgba(59, 130, 246, 1);
+                opacity: 0.9;
+                text-shadow: 0 0 20px rgba(251, 191, 36, 1);
+                background: rgba(251, 191, 36, 0.4);
             }
         }
 
@@ -1289,7 +1292,7 @@
         }
         
         function updatePlayerNamesDisplay() {
-            if (isHost()) {
+            if (isHost() || isSecondaryHost()) {
                 if (allPlayers.length === 0) {
                     playerNames = "Waiting for players...";
                 } else if (allPlayers.length === 1) {
@@ -1684,6 +1687,11 @@
                 selectQuestion(currentQuestion + 1);
             } else {
                 // Finished round, move to next round
+                // Reset currentQuestion to null before advancing
+                currentQuestion = null;
+                cluesRevealed = 0;
+                answerRevealed = false;
+                
                 if (currentRound === 0) {
                     // Move from Round 1 to Round 2
                     selectRound(1);
@@ -1973,31 +1981,46 @@
 
         // Round 3 (Connecting Wall) functions
         function initializeWall() {
-        const wallData = gameData.round3[0];
-        
-        // Flatten all items from all groups
-        let allItems = [];
-        wallData.groups.forEach((group, groupIndex) => {
-            group.items.forEach(item => {
-                allItems.push({ text: item, groupIndex: groupIndex });
+            const wallData = gameData.round3[0];
+            
+            // Create tiles with unique IDs
+            let allTiles = [];
+            let tileId = 0;
+            
+            wallData.groups.forEach((group, groupIndex) => {
+                group.items.forEach(item => {
+                    allTiles.push({ 
+                        id: tileId,
+                        text: item, 
+                        groupIndex: groupIndex,
+                        solved: false,
+                        position: tileId
+                    });
+                    tileId++;
+                });
             });
-        });
-        
-        // Shuffle the items
-        wallTiles = shuffleArray(allItems);
-        selectedTiles = [];
-        solvedGroups = [];
-        wallLives = 3;
-        wallPhase = 'setup';  // Start in setup phase
-        connectionGuesses = {};
-        wallTimerStarted = false;
-        showTimeUpModal = false;
-        showWallFrozenModal = false;
-        
-        // Reset timer but don't start it
-        resetTimer();
-        timerDuration = 180000; // 3 minutes
-    }
+            
+            // Shuffle the tiles
+            wallTiles = shuffleArray(allTiles);
+            
+            // Re-assign positions after shuffle (0-15)
+            wallTiles.forEach((tile, index) => {
+                tile.position = index;
+            });
+            
+            selectedTiles = [];
+            solvedGroups = [];
+            wallLives = 3;
+            wallPhase = 'setup';
+            connectionGuesses = {};
+            wallTimerStarted = false;
+            showWallTimeUpModal = false;
+            showWallFrozenModal = false;
+            
+            // Reset timer but don't start it
+            resetTimer();
+            timerDuration = 180000; // 3 minutes
+        }
 
         function startWallTimer() {
             if (!isHost() || wallTimerStarted) return;
@@ -2021,16 +2044,16 @@
             render();
         }
 
-        function toggleTile(index) {
+        function toggleTile(tileId) {
             if (!wallTimerStarted) return;
             if (wallPhase !== 'solving') return;
             if (timerStopped) return;
             
-            const tile = wallTiles[index];
-            if (tile.solved) return;
+            const tile = wallTiles.find(t => t.id === tileId);
+            if (!tile || tile.solved) return;
             
-            const selectedIndex = selectedTiles.indexOf(index);
-            const element = document.querySelector(`[data-tile-id="${index}"]`);
+            const selectedIndex = selectedTiles.indexOf(tileId);
+            const element = document.querySelector(`[data-tile-id="${tileId}"]`);
             
             if (selectedIndex > -1) {
                 // Deselect
@@ -2039,7 +2062,7 @@
             } else {
                 if (selectedTiles.length < 4) {
                     // Select
-                    selectedTiles.push(index);
+                    selectedTiles.push(tileId);
                     if (element) element.classList.add('selected');
                     
                     // Auto-submit when 4 tiles are selected
@@ -2060,19 +2083,28 @@
         function checkGroup() {
             if (selectedTiles.length !== 4) return;
             
-            const selectedGroupIndices = selectedTiles.map(i => wallTiles[i].groupIndex);
+            const selectedGroupIndices = selectedTiles.map(tileId => {
+                const tile = wallTiles.find(t => t.id === tileId);
+                return tile ? tile.groupIndex : -1;
+            });
             const firstGroup = selectedGroupIndices[0];
             const allSame = selectedGroupIndices.every(g => g === firstGroup);
             
             if (allSame) {
                 // Correct group!
                 const wallData = gameData.round3[0];
-                const groupItems = selectedTiles.map(i => wallTiles[i].text).sort();
+                const groupItems = selectedTiles.map(tileId => {
+                    const tile = wallTiles.find(t => t.id === tileId);
+                    return tile ? tile.text : '';
+                }).sort();
                 
                 // Mark tiles as solved
-                selectedTiles.forEach(i => {
-                    wallTiles[i].solved = true;
-                    wallTiles[i].solvedGroupIndex = solvedGroups.length;
+                selectedTiles.forEach(tileId => {
+                    const tile = wallTiles.find(t => t.id === tileId);
+                    if (tile) {
+                        tile.solved = true;
+                        tile.solvedGroupIndex = solvedGroups.length;
+                    }
                 });
                 
                 solvedGroups.push({
@@ -2113,8 +2145,8 @@
                 const remainingGroups = 4 - solvedGroups.length;
                 
                 // Deselect tiles visually without re-rendering
-                selectedTiles.forEach(idx => {
-                    const element = document.querySelector(`[data-tile-id="${idx}"]`);
+                selectedTiles.forEach(tileId => {
+                    const element = document.querySelector(`[data-tile-id="${tileId}"]`);
                     if (element) {
                         element.classList.remove('selected');
                     }
