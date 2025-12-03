@@ -2473,13 +2473,13 @@
                     classes += ' locked';
                 }
                 
-                // Only players can click tiles
+                // For players, make tiles clickable; for host, tiles aren't directly clickable
                 const canPlayerClick = isPlayer() && !tile.solved && wallPhase === 'solving' && wallTimerStarted && !timerStopped;
-                const onclick = canPlayerClick ? `onclick="socket.emit('playerClickedTile', { tileId: ${index} })"` : '';
-                
+                const onclick = canPlayerClick ? `onclick="socket.emit('playerClickedTile', { tileId: ${tile.id} })"` : '';
+
                 const style = `top: ${topPx}px; left: ${leftCalc}; width: ${tileWidth};`;
-                
-                html += `<button class="${classes}" ${finalOnclick} style="${style}" data-tile-id="${index}">${tile.text}</button>`;
+
+                html += `<button class="${classes}" ${onclick} style="${style}" data-tile-id="${tile.id}">${tile.text}</button>`;
             });
             
             // In guessing phase, add overlays and buttons on the actual grid
@@ -2919,6 +2919,12 @@
         }
 
         function renderClues() {
+            // Safety check
+            if (currentQuestion === null || currentQuestion === undefined) {
+                console.error('DEBUG renderClues called with null/undefined currentQuestion');
+                return '<div style="color: white; text-align: center; margin-top: 2rem;">Loading question...</div>';
+            }
+            
             const isSequence = currentRound === 1;
             const isExample = currentQuestion === 'example';
             
@@ -2927,6 +2933,12 @@
                 question = isSequence ? gameData.exampleRound2 : gameData.exampleRound1;
             } else {
                 question = isSequence ? gameData.round2[currentQuestion] : gameData.round1[currentQuestion];
+            }
+            
+            // Additional safety check
+            if (!question) {
+                console.error('DEBUG renderClues - question not found for currentQuestion:', currentQuestion, 'currentRound:', currentRound);
+                return '<div style="color: white; text-align: center; margin-top: 2rem;">Question not found...</div>';
             }
             const pointsValues = question.points;
             
@@ -3174,14 +3186,19 @@
             const container = document.getElementById('gameContainer');
             let content = '';
 
-            console.log('DEBUG render() - view:', view, 'currentRound:', currentRound);
+            console.log('DEBUG render() - view:', view, 'currentRound:', currentRound, 'currentQuestion:', currentQuestion);
             
             if (view === 'rounds') content = renderRoundSelector();
             else if (view === 'questions') content = renderQuestionSelector();
-            else if (view === 'clues') content = renderClues();
+            else if (view === 'clues' && currentQuestion !== null) content = renderClues();
             else if (view === 'wall') content = renderWall();
             else if (view === 'vowels') content = renderVowels();
             else if (view === 'finalScore') content = renderFinalScore();
+            else {
+                // Fallback if view/question state is invalid
+                console.warn('DEBUG Invalid view state - view:', view, 'currentQuestion:', currentQuestion);
+                content = '<div style="color: white; text-align: center; margin-top: 2rem;">Loading...</div>';
+            }
             
             const buzzedIndicator = buzzedInPlayer ? `<div style="position: absolute; left: 50%; transform: translateX(-50%);"><span class="buzzed-indicator">${buzzedInPlayer} buzzed in!</span></div>` : '';
 
