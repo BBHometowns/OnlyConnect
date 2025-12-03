@@ -946,6 +946,7 @@
 
         // Game data
         const gameData = {
+            exampleRound1: { clues: ["Mercury", "Venus", "Earth", "Mars"], connection: "Rocky planets", points: [0, 0, 0, 0] },
             round1: [
                 { clues: ["Zekrom & Reshiram", "Palkia & Dialga", "Groudon & Kyogre", "Lugia & Ho-oh"], connection: "Box Art Legendary Pokemon", points: [5, 3, 2, 1] },
                 { clues: ["Sugar", "Eggs", "Cream Cheese", "Graham Cracker"], connection: "Core Cheesecake Ingredients", points: [5, 3, 2, 1] },
@@ -954,10 +955,11 @@
                 { clues: ["Jasper", "Alice", "Alexa", "Siri"], connection: "AI Personal Assistants", points: [5, 3, 2, 1] },
                 { clues: ["Montana", "Idaho", "Utah", "Nevada"], connection: "Interstate 15", points: [5, 3, 2, 1] }
             ],
+            exampleRound2: { clues: ["1st", "2nd", "3rd", "4th"], answer: "4th", sequence: "Ordinal numbers", points: [0, 0, 0] },
             round2: [
                 { clues: ["Vecepia Towery", "Sandra Diaz-Twine", "Danni Boatwright", "Sandra-Diaz Twine"], answer: "Sandra Diaz-Twine", sequence: "Every Other Female Survivor Winner", points: [5, 3, 2] },
                 { clues: ["Max Teddy", "Sara Flanagan", "Justin Powell", "Megs Espinosa"], answer: "Megs Espinosa", sequence: "Successive Unanimous BBH Winners", points: [5, 3, 2] },
-                { clues: ["The Silence Breakers", "The Guardians", "<p>Joe Biden &</p><p>Kamala Harris</p>", "The Spirit of Ukraine"], answer: "The Spirit of Ukraine", sequence: "Most Recent Non-Single Human Times Person of the Year Winners", points: [5, 3, 2] },
+                { clues: ["The Silence Breakers", "The Guardians", ["<div style='font-size: 0.75rem; line-height 1.2;'>Joe Biden &<br>Kamala Harris</div>"], "The Spirit of Ukraine"], answer: "The Spirit of Ukraine", sequence: "Most Recent Non-Single Human Times Person of the Year Winners", points: [5, 3, 2] },
                 { clues: ["<p>117</p>Tennessine", "<p>113</p>Nihonium", "<p>115</p>Moscovium", "<p>118</p>Oganesson"], answer: "<p>118</p>Oganesson", sequence: "Most Recently Discovered Chemical Elements From Most Recent", points: [5, 3, 2] },
                 { clues: ["Hyper", "Text", "Markup", "Language"], answer: "Language", sequence: "HTML acronym words", points: [5, 3, 2] },
                 { clues: ["Delaware", "Pennsylvania", "New Jersey", "Georgia"], answer: "Georgia", sequence: "First Four States to Join the Union", points: [5, 3, 2] }
@@ -1066,6 +1068,13 @@
             gameCode = code;
             myRole = role;
             playerNames = playerName;
+            showSetupModal = false;
+            render();
+        });
+
+        socket.on('secondaryHostJoined', ({ gameCode: code, role }) => {
+            gameCode = code;
+            myRole = role;
             showSetupModal = false;
             render();
         });
@@ -1216,6 +1225,10 @@
 
         function isPlayer() {
             return myRole && myRole.startsWith('player');
+        }
+
+        function isSecondaryHost() {
+            return myRole === 'secondaryHost';
         }
 
         function syncGameState() {
@@ -1529,11 +1542,12 @@
         function selectQuestion(questionIndex) {
             if (!isHost()) return;
             
-            const questionKey = `r${currentRound}q${questionIndex}`;
+            const isExample = questionIndex === 'example';
+            const questionKey = isExample ? `r${currentRound}qExample` : `r${currentRound}q${questionIndex}`;
             if (completedQuestions.includes(questionKey)) return;
             
             // Reset all relevant states
-            currentQuestion = questionIndex;
+            currentQuestion = isExample ? 'example' : questionIndex;
             cluesRevealed = 0;
             answerRevealed = false;
             timerStopped = false;
@@ -1598,11 +1612,21 @@
         function markCorrect() {
             if (!isHost()) return;
             
+            const isExample = currentQuestion === 'example';
             const isSequence = currentRound === 1;
-            const question = isSequence ? gameData.round2[currentQuestion] : gameData.round1[currentQuestion];
+            let question;
+            if (isExample) {
+                question = isSequence ? gameData.exampleRound2 : gameData.exampleRound1;
+            } else {
+                question = isSequence ? gameData.round2[currentQuestion] : gameData.round1[currentQuestion];
+            }
             const pointsValues = question.points;
             const pointsEarned = pointsValues[timerStoppedOnClue];
-            score += pointsEarned;
+            
+            // Only add points if not an example question
+            if (!isExample) {
+                score += pointsEarned;
+            }
             answerRevealed = true;
             buzzedInPlayer = null;
             
@@ -1632,7 +1656,8 @@
         function completeQuestion() {
             if (!isHost()) return;
             
-            const questionKey = `r${currentRound}q${currentQuestion}`;
+            const isExample = currentQuestion === 'example';
+            const questionKey = isExample ? `r${currentRound}qExample` : `r${currentRound}q${currentQuestion}`;
             if (!completedQuestions.includes(questionKey)) {
                 completedQuestions.push(questionKey);
             }
@@ -1651,7 +1676,10 @@
             // Auto-advance logic
             const questionsInCurrentRound = currentRound === 0 ? gameData.round1.length : gameData.round2.length;
             
-            if (currentQuestion < questionsInCurrentRound - 1) {
+            if (isExample) {
+                // After example, move to first real question
+                selectQuestion(0);
+            } else if (currentQuestion < questionsInCurrentRound - 1) {
                 // Move to next question in same round
                 selectQuestion(currentQuestion + 1);
             } else {
@@ -2316,7 +2344,7 @@
             
             // Back button (hidden during solving)
             if (wallPhase === 'setup') {
-                html += `<button class="back-btn ${!isHost() ? 'disabled' : ''}" onclick="backToRounds()">← Back to Rounds</button>`;
+                html += `<button class="back-btn ${!isHost() || isSecondaryHost() ? 'disabled' : ''}" onclick="backToRounds()">← Back to Rounds</button>`;
             } else {
                 html += '<div style="width: 150px;"></div>';
             }
@@ -2611,6 +2639,7 @@
                             <div class="setup-modal-title">Only Connect</div>
                             <button class="setup-btn" onclick="showHostPassword()">New Game (Host)</button>
                             <button class="setup-btn" onclick="showJoinGame()">Join Game (Player)</button>
+                            <button class="setup-btn" onclick="showSecondaryHostPassword()">Broadcast View (Secondary Host)</button>
                         </div>
                     </div>
                 `;
@@ -2628,6 +2657,39 @@
                             <button class="setup-btn" onclick="verifyHostPassword()">Verify</button>
                             <button class="setup-btn" onclick="setupStep = 'initial'; render();" style="background: rgba(255, 255, 255, 0.15);">Back</button>
                             <div class="error-message" id="errorMessage"></div>
+                        </div>
+                    </div>
+                `;
+            } else if (setupStep === 'secondaryHostPassword') {
+                return `
+                    <div class="setup-modal">
+                        <div class="setup-modal-content">
+                            <div class="setup-modal-title">Secondary Host Verification</div>
+                            <p style="color: white; margin-bottom: 1rem; font-size: 0.875rem;">Enter production password to continue</p>
+                            <input type="password" 
+                                id="secondaryPasswordInput" 
+                                class="setup-input" 
+                                placeholder="Password" 
+                                onkeypress="if(event.key === 'Enter') verifySecondaryHostPassword()">
+                            <button class="setup-btn" onclick="verifySecondaryHostPassword()">Verify</button>
+                            <button class="setup-btn" onclick="setupStep = 'initial'; render();" style="background: rgba(255, 255, 255, 0.15);">Back</button>
+                            <div class="error-message" id="secondaryErrorMessage"></div>
+                        </div>
+                    </div>
+                `;
+            } else if (setupStep === 'joinAsSecondaryHost') {
+                return `
+                    <div class="setup-modal">
+                        <div class="setup-modal-content">
+                            <div class="setup-modal-title">Join as Secondary Host</div>
+                            <input type="text" 
+                                id="secondaryJoinCodeInput" 
+                                class="setup-input" 
+                                placeholder="Enter game code" 
+                                onkeypress="if(event.key === 'Enter') joinAsSecondaryHost()">
+                            <button class="setup-btn" onclick="joinAsSecondaryHost()">Join</button>
+                            <button class="setup-btn" onclick="setupStep = 'initial'; render();" style="background: rgba(255, 255, 255, 0.15);">Back</button>
+                            <div class="error-message" id="secondaryErrorMessage"></div>
                         </div>
                     </div>
                 `;
@@ -2726,6 +2788,50 @@
             }, 100);
         }
 
+        function showSecondaryHostPassword() {
+            setupStep = 'secondaryHostPassword';
+            render();
+            setTimeout(() => {
+                const input = document.getElementById('secondaryPasswordInput');
+                if (input) input.focus();
+            }, 100);
+        }
+
+        function verifySecondaryHostPassword() {
+            const input = document.getElementById('secondaryPasswordInput');
+            const password = input ? input.value : '';
+            const correctPassword = 'Haych22';
+            
+            if (password === correctPassword) {
+                setupStep = 'joinAsSecondaryHost';
+                render();
+                setTimeout(() => {
+                    const input = document.getElementById('secondaryJoinCodeInput');
+                    if (input) input.focus();
+                }, 100);
+            } else {
+                const errorMsg = document.getElementById('secondaryErrorMessage');
+                if (errorMsg) errorMsg.textContent = 'Incorrect password. Access denied.';
+                setTimeout(() => {
+                    setupStep = 'initial';
+                    render();
+                }, 2000);
+            }
+        }
+
+        function joinAsSecondaryHost() {
+            const input = document.getElementById('secondaryJoinCodeInput');
+            const code = input ? input.value.trim() : '';
+            
+            if (!code) {
+                const errorMsg = document.getElementById('secondaryErrorMessage');
+                if (errorMsg) errorMsg.textContent = 'Please enter a game code';
+                return;
+            }
+            
+            socket.emit('joinAsSecondaryHost', { gameCode: code });
+        }
+
         function createGame() {
             const input = document.getElementById('gameCodeInput');
             const code = input ? input.value.trim() : '';
@@ -2775,19 +2881,19 @@
         function renderRoundSelector() {
             return `
                 <div class="round-selector">
-                    <button class="round-btn ${!isHost() ? 'disabled' : ''}" onclick="selectRound(0)">
+                    <button class="round-btn ${!isHost() || isSecondaryHost() ? 'disabled' : ''}" onclick="selectRound(0)">
                         <div class="round-title">Round 1</div>
                         <div>Connections</div>
                     </button>
-                    <button class="round-btn ${!isHost() ? 'disabled' : ''}" onclick="selectRound(1)">
+                    <button class="round-btn ${!isHost() || isSecondaryHost() ? 'disabled' : ''}" onclick="selectRound(1)">
                         <div class="round-title">Round 2</div>
                         <div>Sequences</div>
                     </button>
-                    <button class="round-btn ${!isHost() ? 'disabled' : ''}" onclick="selectRound(2)">
+                    <button class="round-btn ${!isHost() || isSecondaryHost() ? 'disabled' : ''}" onclick="selectRound(2)">
                         <div class="round-title">Round 3</div>
                         <div>Connecting Wall</div>
                     </button>
-                    <button class="round-btn ${!isHost() ? 'disabled' : ''}" onclick="selectRound(3)">
+                    <button class="round-btn ${!isHost() || isSecondaryHost() ? 'disabled' : ''}" onclick="selectRound(3)">
                         <div class="round-title">Round 4</div>
                         <div>Missing Vowels</div>
                     </button>
@@ -2798,11 +2904,20 @@
         function renderQuestionSelector() {
             const questions = currentRound === 0 ? gameData.round1 : gameData.round2;
             const roundName = currentRound === 0 ? "Round 1: Connections" : "Round 2: Sequences";
+            const exampleKey = `r${currentRound}qExample`;
+            const exampleCompleted = completedQuestions.includes(exampleKey);
             
             let html = `<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">`;
-            html += `<button class="back-btn ${!isHost() ? 'disabled' : ''}" onclick="backToRounds()">← Back to Rounds</button>`;
+            html += `<button class="back-btn ${!isHost() || isSecondaryHost() ? 'disabled' : ''}" onclick="backToRounds()">← Back to Rounds</button>`;
             html += `<div style="color: white; font-size: 1.25rem; font-weight: 600;">${roundName}</div>`;
-            html += `<div style="width: 150px;"></div>`; // Spacer for centering
+            html += `<div style="width: 150px;"></div>`;
+            html += `</div>`;
+            
+            // Example question box (above the grid)
+            const canSelectExample = isHost() && !exampleCompleted && sequentialQuestionIndex === 0;
+            const exampleDisabled = !canSelectExample ? 'disabled' : '';
+            html += `<div style="margin-bottom: 1.5rem;">`;
+            html += `<button class="question-btn ${exampleCompleted ? 'completed' : ''} ${exampleDisabled}" ${canSelectExample ? `onclick="selectQuestion('example')"` : ''} style="width: 100%;">Example Question</button>`;
             html += `</div>`;
             
             html += '<div class="question-grid">';
@@ -2820,12 +2935,19 @@
 
         function renderClues() {
             const isSequence = currentRound === 1;
-            const question = isSequence ? gameData.round2[currentQuestion] : gameData.round1[currentQuestion];
+            const isExample = currentQuestion === 'example';
+            
+            let question;
+            if (isExample) {
+                question = isSequence ? gameData.exampleRound2 : gameData.exampleRound1;
+            } else {
+                question = isSequence ? gameData.round2[currentQuestion] : gameData.round1[currentQuestion];
+            }
             const pointsValues = question.points;
             
             let html = '';
             const hideButton = cluesRevealed > 0 ? ' style="visibility: hidden;"' : '';
-            html += `<button class="back-btn ${!isHost() ? 'disabled' : ''}" onclick="backToQuestions()"${hideButton}>← Back to Questions</button>`;
+            html += `<button class="back-btn ${!isHost() || isSecondaryHost() ? 'disabled' : ''}" onclick="backToQuestions()"${hideButton}>← Back to Questions</button>`;
             html += '<div class="clue-container"><div class="clue-grid">';
             
             for (let i = 0; i < 4; i++) {
@@ -2847,10 +2969,16 @@
                 
                 const revealed = i < cluesRevealed;
                 const canReveal = isSequence ? (i < 3 || timerStopped) : true;
-                const clueText = revealed ? question.clues[i] : '';
+                let clueText = revealed ? question.clues[i] : '';
+
+                // For sequence round, show 4th clue transparently to host only
+                if (isSequence && i === 3 && !revealed && isHost() && cluesRevealed > 0) {
+                    clueText = `<div style="opacity: 0.3; color: #94a3b8;">${question.clues[3]}</div>`;
+                }
+
                 const classes = 'clue-btn' + (revealed ? ' revealed' : '') + (!isHost() ? ' disabled' : '');
                 const onclick = (i === cluesRevealed && canReveal && isHost()) ? `onclick="revealClue(${i})"` : '';
-                
+
                 html += `<button class="${classes}" ${onclick}>${clueText}</button>`;
                 html += '</div>';
             }
@@ -2872,16 +3000,16 @@
             }
             html += '</div>';
             
-            const buttonContainerClass = !isHost() ? 'buttons-container player-hidden' : 'buttons-container';
+            const buttonContainerClass = !isHost() || isSecondaryHost() ? 'buttons-container player-hidden' : 'buttons-container';
             html += `<div class="${buttonContainerClass}">`;
             if (timerStopped && !answerRevealed) {
                 html += '<div class="button-row">';
-                html += `<button class="btn btn-correct ${!isHost() ? 'disabled' : ''}" onclick="markCorrect()">Correct</button>`;
-                html += `<button class="btn btn-incorrect ${!isHost() ? 'disabled' : ''}" onclick="markIncorrect()">Incorrect</button>`;
+                html += `<button class="btn btn-correct ${!isHost() || isSecondaryHost() ? 'disabled' : ''}" onclick="markCorrect()">Correct</button>`;
+                html += `<button class="btn btn-incorrect ${!isHost() || isSecondaryHost() ? 'disabled' : ''}" onclick="markIncorrect()">Incorrect</button>`;
                 html += '</div>';
             }
             if (answerRevealed) {
-                html += `<button class="btn btn-primary ${!isHost() ? 'disabled' : ''}" onclick="completeQuestion()">Continue</button>`;
+                html += `<button class="btn btn-primary ${!isHost() || isSecondaryHost() ? 'disabled' : ''}" onclick="completeQuestion()">Continue</button>`;
             }
             html += '</div>';
             
@@ -2909,7 +3037,7 @@
             
             let html = '';
             const hideButton = vowelsCategoryRevealed ? ' style="visibility: hidden;"' : '';
-            html += `<button class="back-btn ${!isHost() ? 'disabled' : ''}" onclick="backToRounds()"${hideButton}>← Back to Rounds</button>`;
+            html += `<button class="back-btn ${!isHost() || isSecondaryHost() ? 'disabled' : ''}" onclick="backToRounds()"${hideButton}>← Back to Rounds</button>`;
             
             html += '<div class="timer-bar-container"><div id="timerBar" class="timer-bar" style="width: 100%;"></div><div id="timerText" class="timer-text">120s</div></div>';
             
@@ -2939,14 +3067,14 @@
             }
             html += '</div>';
             
-            const buttonContainerClass = !isHost() ? 'buttons-container player-hidden' : 'buttons-container';
+            const buttonContainerClass = !isHost() || isSecondaryHost() ? 'buttons-container player-hidden' : 'buttons-container';
             html += `<div class="${buttonContainerClass}">`;
             
             // Show Correct/Incorrect buttons when timer is stopped and answer not revealed
             if (timerStopped && !vowelsAnswerRevealed && buzzedInPlayer) {
                 html += '<div class="button-row">';
-                html += `<button class="btn btn-correct ${!isHost() ? 'disabled' : ''}" onclick="markVowelsCorrect()">Correct</button>`;
-                html += `<button class="btn btn-incorrect ${!isHost() ? 'disabled' : ''}" onclick="markVowelsIncorrect()">Incorrect</button>`;
+                html += `<button class="btn btn-correct ${!isHost() || isSecondaryHost() ? 'disabled' : ''}" onclick="markVowelsCorrect()">Correct</button>`;
+                html += `<button class="btn btn-incorrect ${!isHost() || isSecondaryHost() ? 'disabled' : ''}" onclick="markVowelsIncorrect()">Incorrect</button>`;
                 html += '</div>';
             } 
             // After answer is revealed
@@ -2954,13 +3082,13 @@
                 // Check if there are more clues in this category
                 if (vowelsCurrentClue < category.clues.length - 1) {
                     // More clues in this category - show Next Clue button
-                    html += `<button class="btn btn-primary ${!isHost() ? 'disabled' : ''}" onclick="nextVowelsClue()">Next Clue</button>`;
+                    html += `<button class="btn btn-primary ${!isHost() || isSecondaryHost() ? 'disabled' : ''}" onclick="nextVowelsClue()">Next Clue</button>`;
                 } else if (canAdvanceCategory) {
                     // Finished this category, but more categories exist - show Next Category button
-                    html += `<button class="btn btn-primary ${!isHost() ? 'disabled' : ''}" onclick="nextVowelsCategory()">Next Category</button>`;
+                    html += `<button class="btn btn-primary ${!isHost() || isSecondaryHost() ? 'disabled' : ''}" onclick="nextVowelsCategory()">Next Category</button>`;
                 } else if (isLastCategory && categoryComplete) {
                     // Finished last category - show End Game button
-                    html += `<button class="btn btn-primary ${!isHost() ? 'disabled' : ''}" onclick="endGame()">End Game</button>`;
+                    html += `<button class="btn btn-primary ${!isHost() || isSecondaryHost() ? 'disabled' : ''}" onclick="endGame()">End Game</button>`;
                 }
             }
             
@@ -2971,7 +3099,7 @@
                 html += '<div class="time-up-modal">';
                 html += '<div class="time-up-content">';
                 html += '<div class="time-up-title">Time is Up</div>';
-                html += `<button class="btn btn-primary ${!isHost() ? 'disabled' : ''}" onclick="revealVowelsAnswerFromModal()" style="font-size: 1.25rem; padding: 1rem 2rem;">End Game</button>`;
+                html += `<button class="btn btn-primary ${!isHost() || isSecondaryHost() ? 'disabled' : ''}" onclick="revealVowelsAnswerFromModal()" style="font-size: 1.25rem; padding: 1rem 2rem;">End Game</button>`;
                 html += '</div>';
                 html += '</div>';
             }
@@ -2986,7 +3114,7 @@
                     <div class="final-score-box">
                         <div class="final-score-value">${score}</div>
                     </div>
-                    <button class="end-session-btn ${!isHost() ? 'disabled' : ''}" onclick="endSession()">End Session</button>
+                    <button class="end-session-btn ${!isHost() || isSecondaryHost() ? 'disabled' : ''}" onclick="endSession()">End Session</button>
                 </div>
             `;
         }

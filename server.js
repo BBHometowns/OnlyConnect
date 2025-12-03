@@ -1,4 +1,4 @@
-const express = require('express');
+ const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
 const path = require('path');
@@ -108,6 +108,15 @@ io.on('connection', (socket) => {
         socket.emit('syncGameState', session.gameState);
 
         console.log(`Player ${playerName} (${socket.id}) joined game ${gameCode} as Player ${playerNumber}`);
+    });
+
+    socket.on('joinAsSecondaryHost', ({ gameCode }) => {
+        if (games[gameCode]) {
+            socket.join(gameCode);
+            socket.emit('secondaryHostJoined', { gameCode, role: 'secondaryHost' });
+        } else {
+            socket.emit('gameNotFound');
+        }
     });
 
     // Player buzzes in
