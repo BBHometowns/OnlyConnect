@@ -2014,9 +2014,26 @@
 
         // Round 3 (Connecting Wall) functions
         function initializeWall() {
+            // ONLY the host should shuffle tiles - players will receive the shuffled array via sync
+            if (!isHost()) {
+                console.log('DEBUG initializeWall called on non-host - skipping shuffle, will receive via sync');
+                // Don't shuffle or create tiles - just initialize other state
+                selectedTiles = [];
+                solvedGroups = [];
+                wallLives = 3;
+                wallPhase = 'setup';
+                connectionGuesses = {};
+                wallTimerStarted = false;
+                showWallTimeUpModal = false;
+                showWallFrozenModal = false;
+                resetTimer();
+                timerDuration = 180000;
+                return; // Exit early for non-hosts
+            }
+            
             const wallData = gameData.round3[0];
             
-            console.log('DEBUG initializeWall called');
+            console.log('DEBUG HOST initializeWall called');
             
             // Create tiles with unique IDs
             let allTiles = [];
@@ -2035,7 +2052,7 @@
                 });
             });
             
-            // Shuffle the tiles
+            // Shuffle the tiles (HOST ONLY)
             wallTiles = shuffleArray(allTiles);
             
             // Re-assign positions after shuffle (0-15)
@@ -2043,8 +2060,8 @@
                 tile.position = index;
             });
             
-            console.log('DEBUG Wall initialized with', wallTiles.length, 'tiles');
-            console.log('DEBUG First 3 tiles:', wallTiles.slice(0, 3).map(t => t.text));
+            console.log('DEBUG HOST Wall initialized with', wallTiles.length, 'tiles');
+            console.log('DEBUG HOST First 3 tiles:', wallTiles.slice(0, 3).map(t => t.text));
             
             selectedTiles = [];
             solvedGroups = [];
