@@ -1099,6 +1099,11 @@
         });
 
         socket.on('syncGameState', (gameState) => {
+            console.log('DEBUG Received syncGameState - view:', gameState.view, 'wallTiles.length:', gameState.wallTiles ? gameState.wallTiles.length : 0);
+            if (gameState.wallTiles && gameState.wallTiles.length > 0) {
+                console.log('DEBUG First 3 wall tiles from sync:', gameState.wallTiles.slice(0, 3).map(t => t.text));
+            }
+            
             // Store the current timer state
             const wasTimerRunning = timerInterval !== null && !timerStopped;
             
@@ -1501,9 +1506,14 @@
 
         // Game functions with role restrictions
         function selectRound(roundIndex) {
-            if (!isHost()) return;
+            console.log('DEBUG selectRound called - isHost:', isHost(), 'roundIndex:', roundIndex);
             
-            console.log('DEBUG selectRound called with roundIndex:', roundIndex);
+            if (!isHost()) {
+                console.log('DEBUG Non-host received selectRound - ignoring direct call, will receive via sync');
+                return;
+            }
+            
+            console.log('DEBUG Host selectRound - processing roundIndex:', roundIndex);
             
             currentRound = roundIndex;
             
@@ -1524,18 +1534,18 @@
             resetTimer();
             
             if (roundIndex === 2) {
-                console.log('DEBUG Initializing Round 3: Wall');
+                console.log('DEBUG Host initializing Round 3: Wall');
                 view = 'wall';
                 currentCategoryName = "Connecting Wall";
                 initializeWall();
             } else if (roundIndex === 3) {
-                console.log('DEBUG Initializing Round 4: Vowels');
+                console.log('DEBUG Host initializing Round 4: Vowels');
                 view = 'vowels';
                 currentCategoryName = "Missing Vowels";
                 initializeVowels();
             } else {
                 // For rounds 0 (Connections) and 1 (Sequences)
-                console.log('DEBUG Initializing Round', roundIndex, '(Questions)');
+                console.log('DEBUG Host initializing Round', roundIndex, '(Questions)');
                 view = 'questions';
                 currentCategoryName = '';
                 
@@ -1552,9 +1562,9 @@
                 }
             }
             
-            console.log('DEBUG After selectRound - view:', view, 'currentRound:', currentRound, 'currentCategoryName:', currentCategoryName);
+            console.log('DEBUG After selectRound - view:', view, 'currentRound:', currentRound, 'wallTiles.length:', wallTiles.length);
             
-            broadcastAction('selectRound', [roundIndex]);
+            // Don't broadcast selectRound - just sync the full state
             syncGameState();
             render();
         }
@@ -2004,36 +2014,37 @@
 
         // Round 3 (Connecting Wall) functions
         function initializeWall() {
-            // Only shuffle on host side - players will get the shuffled order via sync
-            if (isHost()) {
-                const wallData = gameData.round3[0];
-                
-                // Create tiles with unique IDs
-                let allTiles = [];
-                let tileId = 0;
-                
-                wallData.groups.forEach((group, groupIndex) => {
-                    group.items.forEach(item => {
-                        allTiles.push({ 
-                            id: tileId,
-                            text: item, 
-                            groupIndex: groupIndex,
-                            solved: false,
-                            position: tileId
-                        });
-                        tileId++;
+            const wallData = gameData.round3[0];
+            
+            console.log('DEBUG initializeWall called');
+            
+            // Create tiles with unique IDs
+            let allTiles = [];
+            let tileId = 0;
+            
+            wallData.groups.forEach((group, groupIndex) => {
+                group.items.forEach(item => {
+                    allTiles.push({ 
+                        id: tileId,
+                        text: item, 
+                        groupIndex: groupIndex,
+                        solved: false,
+                        position: tileId
                     });
+                    tileId++;
                 });
-                
-                // Shuffle the tiles
-                wallTiles = shuffleArray(allTiles);
-                
-                // Re-assign positions after shuffle (0-15)
-                wallTiles.forEach((tile, index) => {
-                    tile.position = index;
-                });
-            }
-            // If not host, wallTiles will be populated via syncGameState
+            });
+            
+            // Shuffle the tiles
+            wallTiles = shuffleArray(allTiles);
+            
+            // Re-assign positions after shuffle (0-15)
+            wallTiles.forEach((tile, index) => {
+                tile.position = index;
+            });
+            
+            console.log('DEBUG Wall initialized with', wallTiles.length, 'tiles');
+            console.log('DEBUG First 3 tiles:', wallTiles.slice(0, 3).map(t => t.text));
             
             selectedTiles = [];
             solvedGroups = [];
