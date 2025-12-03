@@ -2639,7 +2639,6 @@
                             <div class="setup-modal-title">Only Connect</div>
                             <button class="setup-btn" onclick="showHostPassword()">New Game (Host)</button>
                             <button class="setup-btn" onclick="showJoinGame()">Join Game (Player)</button>
-                            <button class="setup-btn" onclick="showSecondaryHostPassword()">Broadcast View (Secondary Host)</button>
                         </div>
                     </div>
                 `;
@@ -2660,50 +2659,18 @@
                         </div>
                     </div>
                 `;
-            } else if (setupStep === 'secondaryHostPassword') {
-                return `
-                    <div class="setup-modal">
-                        <div class="setup-modal-content">
-                            <div class="setup-modal-title">Secondary Host Verification</div>
-                            <p style="color: white; margin-bottom: 1rem; font-size: 0.875rem;">Enter production password to continue</p>
-                            <input type="password" 
-                                id="secondaryPasswordInput" 
-                                class="setup-input" 
-                                placeholder="Password" 
-                                onkeypress="if(event.key === 'Enter') verifySecondaryHostPassword()">
-                            <button class="setup-btn" onclick="verifySecondaryHostPassword()">Verify</button>
-                            <button class="setup-btn" onclick="setupStep = 'initial'; render();" style="background: rgba(255, 255, 255, 0.15);">Back</button>
-                            <div class="error-message" id="secondaryErrorMessage"></div>
-                        </div>
-                    </div>
-                `;
-            } else if (setupStep === 'joinAsSecondaryHost') {
-                return `
-                    <div class="setup-modal">
-                        <div class="setup-modal-content">
-                            <div class="setup-modal-title">Join as Secondary Host</div>
-                            <input type="text" 
-                                id="secondaryJoinCodeInput" 
-                                class="setup-input" 
-                                placeholder="Enter game code" 
-                                onkeypress="if(event.key === 'Enter') joinAsSecondaryHost()">
-                            <button class="setup-btn" onclick="joinAsSecondaryHost()">Join</button>
-                            <button class="setup-btn" onclick="setupStep = 'initial'; render();" style="background: rgba(255, 255, 255, 0.15);">Back</button>
-                            <div class="error-message" id="secondaryErrorMessage"></div>
-                        </div>
-                    </div>
-                `;
             } else if (setupStep === 'createGame') {
                 return `
                     <div class="setup-modal">
                         <div class="setup-modal-content">
-                            <div class="setup-modal-title">Create Game</div>
+                            <div class="setup-modal-title">Host Options</div>
                             <input type="text" 
-                                   id="gameCodeInput" 
-                                   class="setup-input" 
-                                   placeholder="Enter game code (e.g., Veto2)" 
-                                   onkeypress="if(event.key === 'Enter') createGame()">
+                                id="gameCodeInput" 
+                                class="setup-input" 
+                                placeholder="Enter game code (e.g., Veto2)" 
+                                onkeypress="if(event.key === 'Enter') createGame()">
                             <button class="setup-btn" onclick="createGame()">Create Game</button>
+                            <button class="setup-btn" onclick="joinAsSecondaryHostWithCode()">Join as Secondary Host</button>
                             <button class="setup-btn" onclick="setupStep = 'initial'; render();" style="background: rgba(255, 255, 255, 0.15);">Back</button>
                             <div class="error-message" id="errorMessage"></div>
                         </div>
@@ -2788,43 +2755,12 @@
             }, 100);
         }
 
-        function showSecondaryHostPassword() {
-            setupStep = 'secondaryHostPassword';
-            render();
-            setTimeout(() => {
-                const input = document.getElementById('secondaryPasswordInput');
-                if (input) input.focus();
-            }, 100);
-        }
-
-        function verifySecondaryHostPassword() {
-            const input = document.getElementById('secondaryPasswordInput');
-            const password = input ? input.value : '';
-            const correctPassword = 'Haych22';
-            
-            if (password === correctPassword) {
-                setupStep = 'joinAsSecondaryHost';
-                render();
-                setTimeout(() => {
-                    const input = document.getElementById('secondaryJoinCodeInput');
-                    if (input) input.focus();
-                }, 100);
-            } else {
-                const errorMsg = document.getElementById('secondaryErrorMessage');
-                if (errorMsg) errorMsg.textContent = 'Incorrect password. Access denied.';
-                setTimeout(() => {
-                    setupStep = 'initial';
-                    render();
-                }, 2000);
-            }
-        }
-
-        function joinAsSecondaryHost() {
-            const input = document.getElementById('secondaryJoinCodeInput');
+        function joinAsSecondaryHostWithCode() {
+            const input = document.getElementById('gameCodeInput');
             const code = input ? input.value.trim() : '';
             
             if (!code) {
-                const errorMsg = document.getElementById('secondaryErrorMessage');
+                const errorMsg = document.getElementById('errorMessage');
                 if (errorMsg) errorMsg.textContent = 'Please enter a game code';
                 return;
             }
