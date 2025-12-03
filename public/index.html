@@ -2418,15 +2418,9 @@
                     classes += ' locked';
                 }
                 
-                // For players, make tiles clickable; for host, tiles aren't directly clickable
+                // Only players can click tiles
                 const canPlayerClick = isPlayer() && !tile.solved && wallPhase === 'solving' && wallTimerStarted && !timerStopped;
                 const onclick = canPlayerClick ? `onclick="socket.emit('playerClickedTile', { tileId: ${index} })"` : '';
-                
-                // For host, allow clicking
-                const canHostClick = isHost() && !tile.solved && wallPhase === 'solving' && wallTimerStarted && !timerStopped;
-                const hostOnclick = canHostClick ? `onclick="toggleTile(${index})"` : '';
-                
-                const finalOnclick = isHost() ? hostOnclick : onclick;
                 
                 const style = `top: ${topPx}px; left: ${leftCalc}; width: ${tileWidth};`;
                 

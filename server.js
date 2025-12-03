@@ -111,12 +111,28 @@ io.on('connection', (socket) => {
     });
 
     socket.on('joinAsSecondaryHost', ({ gameCode }) => {
-        if (games[gameCode]) {
-            socket.join(gameCode);
-            socket.emit('secondaryHostJoined', { gameCode, role: 'secondaryHost' });
-        } else {
+        const session = gameSessions.get(gameCode);
+        
+        if (!session) {
             socket.emit('gameNotFound');
+            return;
         }
+
+        // Join as secondary host (read-only)
+        socket.join(gameCode);
+        socket.gameCode = gameCode;
+        socket.role = 'secondaryHost';
+
+        // Send role info to secondary host
+        socket.emit('secondaryHostJoined', { 
+            gameCode, 
+            role: 'secondaryHost'
+        });
+
+        // Send current game state to secondary host
+        socket.emit('syncGameState', session.gameState);
+
+        console.log(`Secondary host (${socket.id}) joined game ${gameCode}`);
     });
 
     // Player buzzes in
