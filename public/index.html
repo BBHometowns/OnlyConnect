@@ -2004,32 +2004,36 @@
 
         // Round 3 (Connecting Wall) functions
         function initializeWall() {
-            const wallData = gameData.round3[0];
-            
-            // Create tiles with unique IDs
-            let allTiles = [];
-            let tileId = 0;
-            
-            wallData.groups.forEach((group, groupIndex) => {
-                group.items.forEach(item => {
-                    allTiles.push({ 
-                        id: tileId,
-                        text: item, 
-                        groupIndex: groupIndex,
-                        solved: false,
-                        position: tileId
+            // Only shuffle on host side - players will get the shuffled order via sync
+            if (isHost()) {
+                const wallData = gameData.round3[0];
+                
+                // Create tiles with unique IDs
+                let allTiles = [];
+                let tileId = 0;
+                
+                wallData.groups.forEach((group, groupIndex) => {
+                    group.items.forEach(item => {
+                        allTiles.push({ 
+                            id: tileId,
+                            text: item, 
+                            groupIndex: groupIndex,
+                            solved: false,
+                            position: tileId
+                        });
+                        tileId++;
                     });
-                    tileId++;
                 });
-            });
-            
-            // Shuffle the tiles
-            wallTiles = shuffleArray(allTiles);
-            
-            // Re-assign positions after shuffle (0-15)
-            wallTiles.forEach((tile, index) => {
-                tile.position = index;
-            });
+                
+                // Shuffle the tiles
+                wallTiles = shuffleArray(allTiles);
+                
+                // Re-assign positions after shuffle (0-15)
+                wallTiles.forEach((tile, index) => {
+                    tile.position = index;
+                });
+            }
+            // If not host, wallTiles will be populated via syncGameState
             
             selectedTiles = [];
             solvedGroups = [];
