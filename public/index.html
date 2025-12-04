@@ -3127,35 +3127,36 @@
         }
 
         function updateTilePositionsInDOM() {
-            // Calculate positions for all tiles
-            let positionIndex = 0;
-            const tilePositions = new Map();
+            // Calculate NEW positions for all tiles based on solved state
+            let newPositionIndex = 0;
             
-            // Assign positions: solved groups first (in order solved), then unsolved
-            solvedGroups.forEach((group, groupIdx) => {
+            // First, update positions for all solved tiles (in order of groups solved)
+            solvedGroups.forEach((group) => {
                 group.items.forEach(itemText => {
-                    const tileIndex = wallTiles.findIndex(t => t.text === itemText && t.solvedGroupIndex === groupIdx);
-                    if (tileIndex !== -1) {
-                        tilePositions.set(tileIndex, positionIndex);
-                        positionIndex++;
+                    const tile = wallTiles.find(t => t.text === itemText);
+                    if (tile) {
+                        tile.position = newPositionIndex;
+                        newPositionIndex++;
                     }
                 });
             });
             
-            // Unsolved tiles get remaining positions
-            wallTiles.forEach((tile, index) => {
+            // Then, update positions for unsolved tiles
+            wallTiles.forEach(tile => {
                 if (!tile.solved) {
-                    tilePositions.set(index, positionIndex);
-                    positionIndex++;
+                    tile.position = newPositionIndex;
+                    newPositionIndex++;
                 }
             });
             
+            console.log('DEBUG updateTilePositionsInDOM - updated positions for', wallTiles.length, 'tiles');
+            
             // Update DOM elements directly (no re-render)
-            wallTiles.forEach((tile, index) => {
-                const element = document.querySelector(`[data-tile-id="${index}"]`);
+            wallTiles.forEach((tile) => {
+                const element = document.querySelector(`[data-tile-id="${tile.id}"]`);
                 if (!element) return;
                 
-                const pos = tilePositions.get(index);
+                const pos = tile.position;
                 const row = Math.floor(pos / 4);
                 const col = pos % 4;
                 
