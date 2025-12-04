@@ -962,7 +962,7 @@
             ],
             exampleRound2: { clues: ["1st", "2nd", "3rd", "4th"], answer: "4th", sequence: "Ordinal numbers", points: [0, 0, 0] },
             round2: [
-                { clues: ["Vecepia Towery", "Sandra Diaz-Twine", "Danni Boatwright", "Sandra-Diaz Twine"], answer: "Sandra Diaz-Twine", sequence: "Every Other Female Survivor Winner", points: [5, 3, 2] },
+                { clues: ["Vecepia Towery", "Sandra Diaz-Twine", "Danni Boatwright", "Natalie White"], answer: "Natalie White", sequence: "Every Other Female Survivor Winner", points: [5, 3, 2] },
                 { clues: ["Max Teddy", "Sara Flanagan", "Justin Powell", "Megs Espinosa"], answer: "Megs Espinosa", sequence: "Successive Unanimous BBH Winners", points: [5, 3, 2] },
                 { clues: ["The Silence Breakers", "The Guardians", ["<div style='font-size: 0.75rem; line-height 1.2;'>Joe Biden &<br>Kamala Harris</div>"], "The Spirit of Ukraine"], answer: "The Spirit of Ukraine", sequence: "Most Recent Non-Single Human Times Person of the Year Winners", points: [5, 3, 2] },
                 { clues: ["117<br>Tennessine", "113<br>Nihonium", "115<br>Moscovium", "118<br>Oganesson"], answer: "118<br>Oganesson", sequence: "Most Recently Discovered Chemical Elements From Most Recent", points: [5, 3, 2] },
@@ -1629,6 +1629,15 @@
             if (!isHost()) return;
             
             const isSequence = currentRound === 1;
+            
+            // For sequences, allow revealing clue 4 directly if timer is stopped (someone buzzed)
+            if (isSequence && index === 3 && timerStopped && cluesRevealed < 4) {
+                cluesRevealed = 4; // Jump to revealing clue 4
+                broadcastAction('revealClue', [index]);
+                syncGameState();
+                render();
+                return;
+            }
             
             if (index === cluesRevealed) {
                 if (isSequence && index === 3 && !timerStopped) {
@@ -2984,6 +2993,7 @@
                 }
                 
                 const revealed = i < cluesRevealed;
+                // Allow clue 4 to be clicked once buzzer is pressed (timerStopped means someone buzzed)
                 const canReveal = isSequence ? (i < 3 || timerStopped) : true;
                 let clueText = revealed ? question.clues[i] : '';
 
@@ -2993,7 +3003,11 @@
                 }
 
                 const classes = 'clue-btn' + (revealed ? ' revealed' : '') + (!isHost() ? ' disabled' : '');
-                const onclick = (i === cluesRevealed && canReveal && isHost()) ? `onclick="revealClue(${i})"` : '';
+                // For sequences: allow clicking clue 4 if timer is stopped (someone buzzed in)
+                const canClickThisClue = isSequence 
+                    ? (i === cluesRevealed && canReveal && isHost()) || (i === 3 && timerStopped && !revealed && isHost())
+                    : (i === cluesRevealed && canReveal && isHost());
+                const onclick = canClickThisClue ? `onclick="revealClue(${i})"` : '';
 
                 html += `<button class="${classes}" ${onclick}>${clueText}</button>`;
                 html += '</div>';
@@ -3220,17 +3234,21 @@
                 content = '<div style="color: white; text-align: center; margin-top: 2rem;">Loading...</div>';
             }
             
-            const buzzedIndicator = buzzedInPlayer ? `<div style="position: absolute; left: 50%; transform: translateX(-50%);"><span class="buzzed-indicator">${buzzedInPlayer} buzzed in!</span></div>` : '';
-
             const headerHtml = view === 'finalScore' ? '' : `
-                <div class="header-card" style="position: relative;">
+                <div class="header-card">
                     <h1 class="header-title">${playerNames}</h1>
-                    ${buzzedIndicator}
                     <div class="score-box">
                         <div class="score-value">${score}</div>
                     </div>
                 </div>
             `;
+
+            // Buzzer indicator (shown separately below header, in line with back buttons)
+            const buzzedIndicator = buzzedInPlayer ? `
+                <div style="display: flex; justify-content: center; align-items: center; margin-bottom: 1.5rem;">
+                    <span class="buzzed-indicator">${buzzedInPlayer} buzzed in!</span>
+                </div>
+            ` : '';
             
             let categoryHtml = '';
             if (currentCategoryName && view !== 'rounds' && view !== 'questions' && view !== 'finalScore') {
@@ -3250,6 +3268,7 @@
                 <div class="game-container">
                     ${headerHtml}
                     ${categoryHtml}
+                    ${buzzedIndicator}
                     ${content}
                 </div>
                 ${setupModalHtml}
