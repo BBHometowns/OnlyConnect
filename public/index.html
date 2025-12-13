@@ -959,7 +959,35 @@
                 { clues: ["Morocco", "United Kingdom", "Andorra", "Portugal"], connection: "Countries That [Land] Border Spain", points: [5, 3, 2, 1] },
                 { clues: ["Jasper", "Alice", "Alexa", "Siri"], connection: "AI Personal Assistants", points: [5, 3, 2, 1] },
                 { clues: [
-                    { type: "audio", youtube: "yebNIHKAC4A", title: "Golden" },
+                    {
+                        type: "audio",
+                        youtube: "yebNIHKAC4A",
+                        title: "Golden <br>K Pop Demon Hunters",
+                        start: 65,
+                        duration: 30
+                    },
+                    {
+                        type: "audio",
+                        youtube: "maONL_HfI20",
+                        title: "Golden Hour <br>Kacey Musgraves",
+                        start: 36,
+                        duration: 30
+                    },
+                    {
+                        type: "audio",
+                        youtube: "PEM0Vs8jf1w",
+                        title: "Golden Hour <br>JVKE",
+                        start: 48,
+                        duration: 30
+                    },
+                    {
+                        type: "audio",
+                        youtube: "KLVq0IAzh1A",
+                        title: "Fields of Gold <br>Sting",
+                        start: 19,
+                        duration: 30
+                    },
+                    
                     { type: "audio", youtube: "maONL_HfI20", title: "Golden Hour" },
                     { type: "audio", youtube: "PEM0Vs8jf1w", title: "Golden Hour" },
                     { type: "audio", youtube: "KLVq0IAzh1A", title: "Fields of Gold" }
@@ -1194,14 +1222,20 @@
                 }
             }
             
-            render();
-
-            // For players: if wall tiles were updated while viewing wall, animate them
-            if (window._needsWallPositionUpdate) {
+            // Special handling for wall view on non-host clients
+            if (!isHost() && view === 'wall' && window._needsWallPositionUpdate) {
                 window._needsWallPositionUpdate = false;
+                
+                // Update state displays without full re-render
+                updateWallStateWithoutRender();
+                
+                // Then animate the tiles
                 setTimeout(() => {
                     updateTilePositionsInDOM();
-                }, 50); // Small delay to ensure render is complete
+                }, 50);
+            } else {
+                // Normal render for everything else
+                render();
             }
         });
 
@@ -3021,23 +3055,36 @@
                 const revealed = i < cluesRevealed;
                 // Allow clue 4 to be clicked once buzzer is pressed (timerStopped means someone buzzed)
                 const canReveal = isSequence ? (i < 3 || timerStopped) : true;
-                let clueText = revealed ? question.clues[i] : '';
-
-                // For sequence round, show 4th clue transparently to host only
-                if (isSequence && i === 3 && !revealed && isHost() && cluesRevealed > 0) {
-                    const clue = question.clues[3];
-
-                    if (typeof clue === 'object' && clue.type === 'image') {
-                        clueText = `<div style="opacity: 0.3"><img src="${clue.src}" alt="${clue.alt || 'Clue image'}" style="max-width: 90%; max-height: 90%; object-fit: contain;"></div>`;
-                    } else if (typeof clue === 'object' && clue.type === 'audio') {
-                        // YouTube embed - hidden player with autoplay
+                
+                // Handle different clue types (text, image, audio)
+                let clueText = '';
+                if (revealed) {
+                    const clue = question.clues[i];
+                    
+                    // Check if clue is an object (image or audio) or plain text
+                    if (typeof clue === 'object' && clue !== null && clue.type === 'image') {
+                        clueText = `<img src="${clue.src}" alt="${clue.alt || 'Clue image'}" style="max-width: 90%; max-height: 90%; object-fit: contain;">`;
+                    } else if (typeof clue === 'object' && clue !== null && clue.type === 'audio') {
+                        // YouTube embed with start time and optional end time
                         const videoId = clue.youtube;
+                        const startTime = clue.start || 0; // Start time in seconds (e.g., 34 for 0:34)
+                        const duration = clue.duration || null; // Duration in seconds (e.g., 30 for 30 seconds)
+                        
+                        // Build YouTube URL parameters
+                        let embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&start=${startTime}`;
+                        
+                        // If duration specified, calculate end time
+                        if (duration) {
+                            const endTime = startTime + duration;
+                            embedUrl += `&end=${endTime}`;
+                        }
+                        
                         clueText = `
                             <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 0.5rem;">
                                 <iframe 
                                     width="1" 
                                     height="1" 
-                                    src="https://www.youtube.com/embed/${videoId}?autoplay=1&controls=0" 
+                                    src="${embedUrl}" 
                                     frameborder="0" 
                                     allow="autoplay; encrypted-media" 
                                     style="opacity: 0; position: absolute;">
@@ -3047,10 +3094,28 @@
                             </div>
                         `;
                     } else {
-                        clueText = `<div style="opacity: 0.3; color: #94a3b8;">${clue}</div>`;
+                        // Plain text clue - handle both string and object that might be text
+                        clueText = typeof clue === 'string' ? clue : (clue || '');
                     }
+                } else {
+                    // When not revealed, show nothing (empty clue button)
+                    clueText = '';
                 }
 
+                // For sequence round, show 4th clue transparently to host only
+                if (isSequence && i === 3 && !revealed && isHost() && cluesRevealed > 0) {
+                    const clue = question.clues[3];
+                    
+                    if (typeof clue === 'object' && clue !== null && clue.type === 'image') {
+                        clueText = `<div style="opacity: 0.3;"><img src="${clue.src}" alt="${clue.alt || 'Clue image'}" style="max-width: 90%; max-height: 90%; object-fit: contain;"></div>`;
+                    } else if (typeof clue === 'object' && clue !== null && clue.type === 'audio') {
+                        clueText = `<div style="opacity: 0.3; color: #94a3b8;">🎵 Audio clue (click to reveal)</div>`;
+                    } else {
+                        const textClue = typeof clue === 'string' ? clue : '';
+                        clueText = `<div style="opacity: 0.3; color: #94a3b8;">${textClue}</div>`;
+                    }
+                }
+                
                 const classes = 'clue-btn' + (revealed ? ' revealed' : '') + (!isHost() ? ' disabled' : '');
                 // For sequences: allow clicking clue 4 if timer is stopped (someone buzzed in)
                 const canClickThisClue = isSequence 
@@ -3245,6 +3310,74 @@
                     element.classList.remove('selected');
                 }
             });
+
+            function updateWallStateWithoutRender() {
+                // Update score display
+                const scoreElement = document.querySelector('.score-value');
+                if (scoreElement) scoreElement.textContent = score;
+                
+                // Update selected tiles in DOM
+                document.querySelectorAll('.wall-tile').forEach(element => {
+                    const tileId = parseInt(element.getAttribute('data-tile-id'));
+                    const isSelected = selectedTiles.includes(tileId);
+                    
+                    if (isSelected) {
+                        element.classList.add('selected');
+                    } else {
+                        element.classList.remove('selected');
+                    }
+                });
+                
+                // Update lives display if needed
+                const remainingGroups = 4 - solvedGroups.length;
+                const showLives = remainingGroups === 2 && wallPhase === 'solving' && wallTimerStarted;
+                
+                if (showLives) {
+                    const wallHeader = document.querySelector('.wall-header');
+                    let livesDisplay = wallHeader?.querySelector('.lives-display');
+                    
+                    if (wallHeader && !livesDisplay) {
+                        const livesHtml = `<div class="lives-display">Lives: ${'❤️'.repeat(wallLives)}${'🖤'.repeat(3 - wallLives)}</div>`;
+                        wallHeader.insertAdjacentHTML('beforeend', livesHtml);
+                    } else if (livesDisplay) {
+                        livesDisplay.innerHTML = `Lives: ${'❤️'.repeat(wallLives)}${'🖤'.repeat(3 - wallLives)}`;
+                    }
+                }
+                
+                // Update timer display
+                if (timerRemainingWhenStopped !== null) {
+                    updateTimerDisplay(timerRemainingWhenStopped);
+                }
+                
+                // Handle modals
+                if (showWallFrozenModal && !document.querySelector('.wall-frozen-modal')) {
+                    const gameContainer = document.querySelector('.game-container');
+                    if (gameContainer) {
+                        const modalHtml = `
+                            <div class="wall-frozen-modal">
+                                <div class="wall-frozen-content">
+                                    <div class="wall-frozen-title">The Wall has Frozen!</div>
+                                </div>
+                            </div>
+                        `;
+                        gameContainer.insertAdjacentHTML('beforeend', modalHtml);
+                    }
+                }
+                
+                if (showTimeUpModal && !document.querySelector('.time-up-modal')) {
+                    const gameContainer = document.querySelector('.game-container');
+                    if (gameContainer) {
+                        const modalHtml = `
+                            <div class="time-up-modal">
+                                <div class="time-up-content">
+                                    <div class="time-up-title">Time is Up</div>
+                                </div>
+                            </div>
+                        `;
+                        gameContainer.insertAdjacentHTML('beforeend', modalHtml);
+                    }
+                }
+            }
             
             // Update score display
             const scoreElement = document.querySelector('.score-value');
