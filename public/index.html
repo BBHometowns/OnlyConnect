@@ -2280,6 +2280,9 @@
                 selectedTiles = [];
                 score += 1;
                 
+                // RECALCULATE tile positions before animating
+                recalculateWallPositions();
+                
                 // Update positions WITHOUT calling render() - let CSS animate!
                 updateTilePositionsInDOM();
                 
@@ -2517,6 +2520,9 @@
                         });
                         
                         score += 1;
+                        
+                        // RECALCULATE tile positions before animating
+                        recalculateWallPositions();
                         
                         // Update positions WITHOUT calling render() - let CSS animate!
                         updateTilePositionsInDOM();
@@ -2772,6 +2778,9 @@
                     }
                 }
             }
+            
+            // RECALCULATE tile positions before animating
+            recalculateWallPositions();
             
             // Update positions WITHOUT calling render() - let CSS animate!
             updateTilePositionsInDOM();
@@ -3320,6 +3329,30 @@
             `;
         }
 
+        function recalculateWallPositions() {
+            let newPositionIndex = 0;
+            
+            // First, assign positions to all solved tiles (in order of when groups were solved)
+            solvedGroups.forEach((group) => {
+                // For each group, assign positions to its tiles
+                group.items.forEach(itemText => {
+                    const tile = wallTiles.find(t => t.text === itemText);
+                    if (tile) {
+                        tile.position = newPositionIndex;
+                        newPositionIndex++;
+                    }
+                });
+            });
+            
+            // Then, assign positions to all unsolved tiles
+            wallTiles.forEach(tile => {
+                if (!tile.solved) {
+                    tile.position = newPositionIndex;
+                    newPositionIndex++;
+                }
+            });
+        }
+        
         function updateTilePositionsInDOM() {
             // Get all tile elements
             const tileElements = document.querySelectorAll('.wall-tile');
