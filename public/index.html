@@ -1226,13 +1226,21 @@
             if (!isHost() && view === 'wall' && window._needsWallPositionUpdate) {
                 window._needsWallPositionUpdate = false;
                 
-                // Update state displays without full re-render
-                updateWallStateWithoutRender();
+                // Check if wall is actually rendered yet
+                const wallExists = document.querySelector('.wall-grid');
                 
-                // Then animate the tiles
-                setTimeout(() => {
-                    updateTilePositionsInDOM();
-                }, 50);
+                if (wallExists) {
+                    // Update state displays without full re-render
+                    updateWallStateWithoutRender();
+                    
+                    // Then animate the tiles
+                    setTimeout(() => {
+                        updateTilePositionsInDOM();
+                    }, 50);
+                } else {
+                    // Wall not rendered yet, do a full render
+                    render();
+                }
             } else {
                 // Normal render for everything else
                 render();
@@ -3358,15 +3366,23 @@
                 const scoreElement = document.querySelector('.score-value');
                 if (scoreElement) scoreElement.textContent = score;
                 
-                // Update selected tiles in DOM
+                // Update tiles in DOM (selection state and visibility)
                 document.querySelectorAll('.wall-tile').forEach(element => {
                     const tileId = parseInt(element.getAttribute('data-tile-id'));
                     const isSelected = selectedTiles.includes(tileId);
                     
+                    // Update selection state
                     if (isSelected) {
                         element.classList.add('selected');
                     } else {
                         element.classList.remove('selected');
+                    }
+                    
+                    // Update text visibility based on whether timer has started
+                    if (wallTimerStarted) {
+                        element.classList.remove('hidden-text');
+                    } else {
+                        element.classList.add('hidden-text');
                     }
                 });
                 
@@ -3469,7 +3485,7 @@
 
             // Buzzer indicator (fixed position overlay, doesn't displace content)
             const buzzedIndicator = buzzedInPlayer ? `
-                <div style="position: fixed; top: 350px; left: 50%; transform: translateX(-50%); z-index: 999;">
+                <div style="position: fixed; top: 300px; left: 50%; transform: translateX(-50%); z-index: 999;">
                     <span class="buzzed-indicator">${buzzedInPlayer} buzzed in!</span>
                 </div>
             ` : '';
