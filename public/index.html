@@ -958,7 +958,15 @@
                 { clues: ["Tyler Brown", "Ryan Lilly", "Kari Link", "Sam Focer"], connection: "HTL1 Winners: Team Boy George ...", points: [5, 3, 2, 1] },
                 { clues: ["Morocco", "United Kingdom", "Andorra", "Portugal"], connection: "Countries That [Land] Border Spain", points: [5, 3, 2, 1] },
                 { clues: ["Jasper", "Alice", "Alexa", "Siri"], connection: "AI Personal Assistants", points: [5, 3, 2, 1] },
-                { clues: ["Montana", "Idaho", "Utah", "Nevada"], connection: "Interstate 15", points: [5, 3, 2, 1] }
+                { clues: [
+                    { type: "audio", youtube: "yebNIHKAC4A", title: "Golden" },
+                    { type: "audio", youtube: "maONL_HfI20", title: "Golden Hour" },
+                    { type: "audio", youtube: "PEM0Vs8jf1w", title: "Golden Hour" },
+                    { type: "audio", youtube: "KLVq0IAzh1A", title: "Fields of Gold" }
+                ],
+                 connection: "Songs with Gold in the Title",
+                 points: [5, 3, 2, 1]
+                },
             ],
             exampleRound2: { clues: ["1st", "2nd", "3rd", "4th"], answer: "4th", sequence: "Ordinal numbers", points: [0, 0, 0] },
             round2: [
@@ -1134,6 +1142,9 @@
             showCluesTimeUpModal = gameState.showCluesTimeUpModal;
             
             // Wall state
+            const previousWallTiles = wallTiles;
+            const wasInWallView = (view === 'wall');
+            
             wallTiles = gameState.wallTiles;
             selectedTiles = gameState.selectedTiles;
             solvedGroups = gameState.solvedGroups;
@@ -1143,6 +1154,13 @@
             wallTimerStarted = gameState.wallTimerStarted;
             showTimeUpModal = gameState.showTimeUpModal;
             showWallFrozenModal = gameState.showWallFrozenModal;
+            
+            // For players/secondary hosts: if we were already viewing the wall and tiles changed,
+            // update positions in DOM directly instead of re-rendering
+            if (!isHost() && wasInWallView && view === 'wall' && previousWallTiles.length > 0) {
+                // We'll update positions after the main render, so set a flag
+                window._needsWallPositionUpdate = true;
+            }
             
             // Vowels state
             vowelsCurrentCategory = gameState.vowelsCurrentCategory;
@@ -1177,6 +1195,14 @@
             }
             
             render();
+
+            // For players: if wall tiles were updated while viewing wall, animate them
+            if (window._needsWallPositionUpdate) {
+                window._needsWallPositionUpdate = false;
+                setTimeout(() => {
+                    updateTilePositionsInDOM();
+                }, 50); // Small delay to ensure render is complete
+            }
         });
 
         socket.on('playerBuzzed', ({ playerName }) => {
@@ -2999,7 +3025,30 @@
 
                 // For sequence round, show 4th clue transparently to host only
                 if (isSequence && i === 3 && !revealed && isHost() && cluesRevealed > 0) {
-                    clueText = `<div style="opacity: 0.3; color: #94a3b8;">${question.clues[3]}</div>`;
+                    const clue = question.clues[3];
+
+                    if (typeof clue === 'object' && clue.type === 'image') {
+                        clueText = `<div style="opacity: 0.3"><img src="${clue.src}" alt="${clue.alt || 'Clue image'}" style="max-width: 90%; max-height: 90%; object-fit: contain;"></div>`;
+                    } else if (typeof clue === 'object' && clue.type === 'audio') {
+                        // YouTube embed - hidden player with autoplay
+                        const videoId = clue.youtube;
+                        clueText = `
+                            <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 0.5rem;">
+                                <iframe 
+                                    width="1" 
+                                    height="1" 
+                                    src="https://www.youtube.com/embed/${videoId}?autoplay=1&controls=0" 
+                                    frameborder="0" 
+                                    allow="autoplay; encrypted-media" 
+                                    style="opacity: 0; position: absolute;">
+                                </iframe>
+                                <div style="font-size: 2rem;">🎵</div>
+                                <div style="font-size: 0.875rem; opacity: 0.8;">${clue.title || 'Audio Clue'}</div>
+                            </div>
+                        `;
+                    } else {
+                        clueText = `<div style="opacity: 0.3; color: #94a3b8;">${clue}</div>`;
+                    }
                 }
 
                 const classes = 'clue-btn' + (revealed ? ' revealed' : '') + (!isHost() ? ' disabled' : '');
