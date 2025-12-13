@@ -1499,6 +1499,14 @@
             // Finally render for host
             render();
         }
+
+        function stopAllAudioClues() {
+            // Find all audio iframes and remove them from DOM to stop playback
+            const audioIframes = document.querySelectorAll('[id^="audio-clue-"]');
+            audioIframes.forEach(iframe => {
+                iframe.remove();
+            });
+        }
         
         function resetTimer() {
             // Clear any running timer
@@ -1735,6 +1743,10 @@
             if (!isExample) {
                 score += pointsEarned;
             }
+
+            // Stop any playing audio
+            stopAllAudioClues();
+            
             answerRevealed = true;
             buzzedInPlayer = null;
             
@@ -1745,6 +1757,9 @@
 
         function markIncorrect() {
             if (!isHost()) return;
+
+            // Stop any playing audio
+            stopAllAudioClues();
             
             answerRevealed = true;
             buzzedInPlayer = null;
@@ -3065,54 +3080,75 @@
                     if (typeof clue === 'object' && clue !== null && clue.type === 'image') {
                         clueText = `<img src="${clue.src}" alt="${clue.alt || 'Clue image'}" style="max-width: 90%; max-height: 90%; object-fit: contain;">`;
                     } else if (typeof clue === 'object' && clue !== null && clue.type === 'audio') {
-                        // YouTube embed with start time and optional end time
                         const videoId = clue.youtube;
-                        const startTime = clue.start || 0; // Start time in seconds (e.g., 34 for 0:34)
-                        const duration = clue.duration || null; // Duration in seconds (e.g., 30 for 30 seconds)
+                        const startTime = clue.start || 0;
+                        const duration = clue.duration || null;
+                        
+                        // Determine if this audio should actually play
+                        // Only play if: it's the most recent clue revealed, answer isn't revealed yet, and not in a modal
+                        const shouldAutoplay = (i === cluesRevealed - 1) && !answerRevealed && !showCluesTimeUpModal;
                         
                         // Build YouTube URL parameters
-                        let embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&start=${startTime}`;
+                        let embedUrl = `https://www.youtube.com/embed/${videoId}?${shouldAutoplay ? 'autoplay=1&' : ''}start=${startTime}`;
                         
-                        // If duration specified, calculate end time
                         if (duration) {
                             const endTime = startTime + duration;
                             embedUrl += `&end=${endTime}`;
                         }
                         
-                        clueText = `
-                            <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 0.5rem;">
-                                <iframe 
-                                    width="1" 
-                                    height="1" 
-                                    src="${embedUrl}" 
-                                    frameborder="0" 
-                                    allow="autoplay; encrypted-media" 
-                                    style="opacity: 0; position: absolute;">
-                                </iframe>
-                                <div style="font-size: 2rem;">🎵</div>
-                                <div style="font-size: 0.875rem; opacity: 0.8;">${clue.title || 'Audio Clue'}</div>
-                            </div>
-                        `;
+                        // For players: show only music icon, no title
+                        if (!isHost()) {
+                            clueText = `
+                                <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 0.5rem; position: relative;">
+                                    <iframe 
+                                        id="audio-clue-${i}"
+                                        width="1" 
+                                        height="1" 
+                                        src="${embedUrl}" 
+                                        frameborder="0" 
+                                        allow="autoplay; encrypted-media" 
+                                        style="opacity: 0; position: absolute;">
+                                    </iframe>
+                                    <div style="font-size: 2rem;">🎵</div>
+                                </div>
+                            `;
+                        } else {
+                            // For host: show music icon with title in transparency (like other clues)
+                            clueText = `
+                                <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 0.5rem; position: relative;">
+                                    <iframe 
+                                        id="audio-clue-${i}"
+                                        width="1" 
+                                        height="1" 
+                                        src="${embedUrl}" 
+                                        frameborder="0" 
+                                        allow="autoplay; encrypted-media" 
+                                        style="opacity: 0; position: absolute;">
+                                    </iframe>
+                                    <div style="font-size: 2rem;">🎵</div>
+                                    <div style="font-size: 0.875rem; opacity: 0.3; color: #94a3b8;">${clue.title || 'Audio Clue'}</div>
+                                </div>
+                            `;
+                        }
                     } else {
                         // Plain text clue - handle both string and object that might be text
                         clueText = typeof clue === 'string' ? clue : (clue || '');
                     }
                 } else {
-                    // When not revealed, show nothing (empty clue button)
-                    clueText = '';
-                }
-
-                // For sequence round, show 4th clue transparently to host only
-                if (isSequence && i === 3 && !revealed && isHost() && cluesRevealed > 0) {
-                    const clue = question.clues[3];
-                    
-                    if (typeof clue === 'object' && clue !== null && clue.type === 'image') {
-                        clueText = `<div style="opacity: 0.3;"><img src="${clue.src}" alt="${clue.alt || 'Clue image'}" style="max-width: 90%; max-height: 90%; object-fit: contain;"></div>`;
-                    } else if (typeof clue === 'object' && clue !== null && clue.type === 'audio') {
-                        clueText = `<div style="opacity: 0.3; color: #94a3b8;">🎵 Audio clue (click to reveal)</div>`;
+                    // When not revealed, show nothing to players but show transparent preview to host
+                    if (isHost()) {
+                        const clue = question.clues[i];
+                        
+                        if (typeof clue === 'object' && clue !== null && clue.type === 'image') {
+                            clueText = `<div style="opacity: 0.3;"><img src="${clue.src}" alt="${clue.alt || 'Clue image'}" style="max-width: 90%; max-height: 90%; object-fit: contain;"></div>`;
+                        } else if (typeof clue === 'object' && clue !== null && clue.type === 'audio') {
+                            clueText = `<div style="opacity: 0.3; color: #94a3b8;">🎵 ${clue.title || 'Audio Clue'}</div>`;
+                        } else {
+                            const textClue = typeof clue === 'string' ? clue : '';
+                            clueText = `<div style="opacity: 0.3; color: #94a3b8;">${textClue}</div>`;
+                        }
                     } else {
-                        const textClue = typeof clue === 'string' ? clue : '';
-                        clueText = `<div style="opacity: 0.3; color: #94a3b8;">${textClue}</div>`;
+                        clueText = '';
                     }
                 }
                 
@@ -3139,7 +3175,13 @@
                 }
             } else if (isHost() && cluesRevealed > 0) {
                 // Show answer to host only, with transparency
-                const displayAnswer = isSequence ? subtitle : answerText;
+                let displayAnswer = isSequence ? subtitle : answerText;
+                
+                // Make sure we're displaying a string, not an object
+                if (typeof displayAnswer === 'object') {
+                    displayAnswer = '';
+                }
+                
                 html += `<div style="font-size: 1.25rem; font-weight: bold; opacity: 0.3; color: #94a3b8;">${displayAnswer}</div>`;
             }
             html += '</div>';
@@ -3425,9 +3467,9 @@
                 </div>
             `;
 
-            // Buzzer indicator (shown separately below header, in line with back buttons)
+            // Buzzer indicator (fixed position overlay, doesn't displace content)
             const buzzedIndicator = buzzedInPlayer ? `
-                <div style="display: flex; justify-content: center; align-items: center; margin-bottom: 1.5rem;">
+                <div style="position: fixed; top: 140px; left: 50%; transform: translateX(-50%); z-index: 999;">
                     <span class="buzzed-indicator">${buzzedInPlayer} buzzed in!</span>
                 </div>
             ` : '';
