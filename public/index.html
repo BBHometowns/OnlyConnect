@@ -1170,7 +1170,7 @@
             showCluesTimeUpModal = gameState.showCluesTimeUpModal;
             
             // Wall state
-            const previousWallTiles = wallTiles;
+            const previousWallTiles = wallTiles.map(t => ({...t})); // Deep copy for comparison
             const previousSolvedGroups = solvedGroups.length;
             const wasInWallView = (view === 'wall');
             const wasTimerStarted = wallTimerStarted;
@@ -1185,12 +1185,22 @@
             showTimeUpModal = gameState.showTimeUpModal;
             showWallFrozenModal = gameState.showWallFrozenModal;
             
-            // For players/secondary hosts: only skip render if we're in the middle of solving
-            // and a group was just solved (positions changed)
+            // For players/secondary hosts: detect if tiles need to be animated
             if (!isHost() && wasInWallView && view === 'wall' && previousWallTiles.length > 0 
-                && wasTimerStarted && wallTimerStarted && solvedGroups.length > previousSolvedGroups) {
-                // Tiles are being rearranged due to solving - update positions in DOM directly
-                window._needsWallPositionUpdate = true;
+                && wasTimerStarted && wallTimerStarted) {
+                
+                // Check if any tile positions changed OR a group was solved
+                const positionsChanged = wallTiles.some((tile, idx) => {
+                    const prevTile = previousWallTiles.find(t => t.id === tile.id);
+                    return prevTile && prevTile.position !== tile.position;
+                });
+                
+                if (positionsChanged || solvedGroups.length > previousSolvedGroups) {
+                    window._needsWallPositionUpdate = true;
+                    window._previousWallTiles = previousWallTiles; // Store old positions for animation
+                } else {
+                    window._needsWallPositionUpdate = false;
+                }
             } else {
                 window._needsWallPositionUpdate = false;
             }
@@ -3311,52 +3321,78 @@
         }
 
         function updateTilePositionsInDOM() {
-            // Calculate NEW positions for all tiles based on solved state
-            let newPositionIndex = 0;
+            // Get all tile elements
+            const tileElements = document.querySelectorAll('.wall-tile');
             
-            // First, update positions for all solved tiles (in order of groups solved)
-            solvedGroups.forEach((group) => {
-                group.items.forEach(itemText => {
-                    const tile = wallTiles.find(t => t.text === itemText);
-                    if (tile) {
-                        tile.position = newPositionIndex;
-                        newPositionIndex++;
+            tileElements.forEach(element => {
+                const tileId = parseInt(element.getAttribute('data-tile-id'));
+                const tile = wallTiles.find(t => t.id === tileId);
+                
+                if (!tile) return;
+                
+                // Calculate NEW target position based on tile.position
+                const targetRow = Math.floor(tile.position / 4);
+                const targetCol = tile.position % 4;
+                const targetTop = targetRow * 112;
+                const targetLeft = `${targetCol * 25}%`;
+                
+                // Get CURRENT position in the DOM (before we change it)
+                const currentTop = element.style.top;
+                const currentLeft = element.style.left;
+                
+                // Parse current position to compare
+                const currentTopPx = parseInt(currentTop) || 0;
+                const currentLeftPercent = parseFloat(currentLeft) || 0;
+                const targetLeftPercent = targetCol * 25;
+                
+                // Check if position actually changed
+                const positionChanged = (currentTopPx !== targetTop) || (Math.abs(currentLeftPercent - targetLeftPercent) > 0.1);
+                
+                if (positionChanged) {
+                    // Get pixel positions for animation calculation
+                    const currentRect = element.getBoundingClientRect();
+                    
+                    // Apply NEW position
+                    element.style.top = targetTop + 'px';
+                    element.style.left = targetLeft;
+                    
+                    // Get NEW position in pixels (after style change)
+                    const newRect = element.getBoundingClientRect();
+                    
+                    // Calculate the difference
+                    const deltaX = currentRect.left - newRect.left;
+                    const deltaY = currentRect.top - newRect.top;
+                    
+                    // Animate from old position to new position
+                    if (Math.abs(deltaX) > 1 || Math.abs(deltaY) > 1) {
+                        // Set transform to OLD position (creates illusion tile hasn't moved yet)
+                        element.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+                        element.style.transition = 'none';
+                        
+                        // Force reflow
+                        element.offsetHeight;
+                        
+                        // Animate to NEW position (transform to 0,0)
+                        element.style.transition = 'transform 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+                        element.style.transform = 'translate(0, 0)';
                     }
-                });
-            });
-            
-            // Then, update positions for unsolved tiles
-            wallTiles.forEach(tile => {
-                if (!tile.solved) {
-                    tile.position = newPositionIndex;
-                    newPositionIndex++;
+                } else {
+                    // Position didn't change, just ensure it's set correctly
+                    element.style.top = targetTop + 'px';
+                    element.style.left = targetLeft;
                 }
-            });
-            
-            console.log('DEBUG updateTilePositionsInDOM - updated positions for', wallTiles.length, 'tiles');
-            
-            // Update DOM elements directly (no re-render)
-            wallTiles.forEach((tile) => {
-                const element = document.querySelector(`[data-tile-id="${tile.id}"]`);
-                if (!element) return;
                 
-                const pos = tile.position;
-                const row = Math.floor(pos / 4);
-                const col = pos % 4;
-                
-                const topPx = row * 100 + row * 12;
-                const leftCalc = `calc(${col} * ((100% - 2.25rem) / 4 + 0.75rem))`;
-                
-                // Update position - CSS will animate this!
-                element.style.top = topPx + 'px';
-                element.style.left = leftCalc;
-                
-                // Update classes for solved tiles
+                // Update solved class
                 if (tile.solved) {
                     element.classList.add('solved', 'group-' + tile.solvedGroupIndex);
                     element.classList.remove('selected');
                 }
             });
+            
+            // Update score display
+            const scoreElement = document.querySelector('.score-value');
+            if (scoreElement) scoreElement.textContent = score;
+        }
 
             function updateWallStateWithoutRender() {
                 // Update score display
@@ -3482,7 +3518,7 @@
 
             // Buzzer indicator (fixed position overlay, doesn't displace content)
             const buzzedIndicator = buzzedInPlayer ? `
-                <div style="position: fixed; top: 280px; left: 50%; transform: translateX(-50%); z-index: 999;">
+                <div style="position: fixed; top: 275px; left: 50%; transform: translateX(-50%); z-index: 999;">
                     <span class="buzzed-indicator">${buzzedInPlayer} buzzed in!</span>
                 </div>
             ` : '';
