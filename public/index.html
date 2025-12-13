@@ -1171,7 +1171,9 @@
             
             // Wall state
             const previousWallTiles = wallTiles;
+            const previousSolvedGroups = solvedGroups.length;
             const wasInWallView = (view === 'wall');
+            const wasTimerStarted = wallTimerStarted;
             
             wallTiles = gameState.wallTiles;
             selectedTiles = gameState.selectedTiles;
@@ -1183,11 +1185,14 @@
             showTimeUpModal = gameState.showTimeUpModal;
             showWallFrozenModal = gameState.showWallFrozenModal;
             
-            // For players/secondary hosts: if we were already viewing the wall and tiles changed,
-            // update positions in DOM directly instead of re-rendering
-            if (!isHost() && wasInWallView && view === 'wall' && previousWallTiles.length > 0) {
-                // We'll update positions after the main render, so set a flag
+            // For players/secondary hosts: only skip render if we're in the middle of solving
+            // and a group was just solved (positions changed)
+            if (!isHost() && wasInWallView && view === 'wall' && previousWallTiles.length > 0 
+                && wasTimerStarted && wallTimerStarted && solvedGroups.length > previousSolvedGroups) {
+                // Tiles are being rearranged due to solving - update positions in DOM directly
                 window._needsWallPositionUpdate = true;
+            } else {
+                window._needsWallPositionUpdate = false;
             }
             
             // Vowels state
@@ -1222,25 +1227,17 @@
                 }
             }
             
-            // Special handling for wall view on non-host clients
-            if (!isHost() && view === 'wall' && window._needsWallPositionUpdate) {
+            // Special handling for wall tile animations on non-host clients
+            if (window._needsWallPositionUpdate) {
                 window._needsWallPositionUpdate = false;
                 
-                // Check if wall is actually rendered yet
-                const wallExists = document.querySelector('.wall-grid');
+                // Update state displays without full re-render (preserves animation)
+                updateWallStateWithoutRender();
                 
-                if (wallExists) {
-                    // Update state displays without full re-render
-                    updateWallStateWithoutRender();
-                    
-                    // Then animate the tiles
-                    setTimeout(() => {
-                        updateTilePositionsInDOM();
-                    }, 50);
-                } else {
-                    // Wall not rendered yet, do a full render
-                    render();
-                }
+                // Then animate the tiles
+                setTimeout(() => {
+                    updateTilePositionsInDOM();
+                }, 50);
             } else {
                 // Normal render for everything else
                 render();
@@ -3485,7 +3482,7 @@
 
             // Buzzer indicator (fixed position overlay, doesn't displace content)
             const buzzedIndicator = buzzedInPlayer ? `
-                <div style="position: fixed; top: 300px; left: 50%; transform: translateX(-50%); z-index: 999;">
+                <div style="position: fixed; top: 280px; left: 50%; transform: translateX(-50%); z-index: 999;">
                     <span class="buzzed-indicator">${buzzedInPlayer} buzzed in!</span>
                 </div>
             ` : '';
