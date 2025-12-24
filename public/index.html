@@ -1566,6 +1566,9 @@
             
             // Set the appropriate modal flag based on current view
             if (view === 'clues') {
+                // Stop any playing audio when time expires
+                stopAllAudioClues();
+                
                 showCluesTimeUpModal = true;
                 timerStopped = true;
                 timerRemainingWhenStopped = 0;  // Freeze at 0 when time expires
@@ -1662,6 +1665,9 @@
             }
             
             timerStopped = true;
+
+            // Stop any playing audio when timer stops
+            stopAllAudioClues();
             
             // Record which clue the timer stopped on (for clues view)
             if (view === 'clues' && timerStoppedOnClue === null) {
@@ -1832,6 +1838,15 @@
                 syncGameState();
                 render();
             }
+        }
+
+        function showAudioTitle(index) {
+            if (!isHost()) return;
+            
+            // This function just triggers a re-render to show the title
+            // The rendering logic will handle showing the title based on timerStopped state
+            syncGameState();
+            render();
         }
 
         function markCorrect() {
@@ -3203,8 +3218,8 @@
                         const duration = clue.duration || null;
                         
                         // Determine if this audio should actually play
-                        // Only play if: it's the most recent clue revealed, answer isn't revealed yet, and not in a modal
-                        const shouldAutoplay = (i === cluesRevealed - 1) && !answerRevealed && !showCluesTimeUpModal;
+                        // Only play if: it's the most recent clue revealed, answer isn't revealed yet, timer is running
+                        const shouldAutoplay = (i === cluesRevealed - 1) && !answerRevealed && !timerStopped && !showCluesTimeUpModal;
                         
                         // Build YouTube URL parameters
                         let embedUrl = `https://www.youtube.com/embed/${videoId}?${shouldAutoplay ? 'autoplay=1&' : ''}start=${startTime}`;
@@ -3214,11 +3229,44 @@
                             embedUrl += `&end=${endTime}`;
                         }
                         
-                        // For players: show only music icon, no title
+                        // Check if we should show the title (after buzzer or timeout)
+                        const showTitle = timerStopped || showCluesTimeUpModal || answerRevealed;
+                        
+                        // For players: show only music icon initially, show title after buzzer/timeout
                         if (!isHost()) {
+                            if (showTitle) {
+                                // Show title after buzzer/timeout - no iframe
+                                clueText = `
+                                    <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 0.5rem;">
+                                        <div style="font-size: 2rem;">🎵</div>
+                                        <div style="font-size: 0.875rem;">${clue.title || 'Audio Clue'}</div>
+                                    </div>
+                                `;
+                            } else {
+                                // Just music icon with hidden iframe
+                                clueText = `
+                                    <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 0.5rem; position: relative;">
+                                        <iframe 
+                                            id="audio-clue-${i}"
+                                            width="1" 
+                                            height="1" 
+                                            src="${embedUrl}" 
+                                            frameborder="0" 
+                                            allow="autoplay; encrypted-media" 
+                                            style="opacity: 0; position: absolute;">
+                                        </iframe>
+                                        <div style="font-size: 2rem;">🎵</div>
+                                    </div>
+                                `;
+                            }
+                        } else {
+                            // For host: always show title with transparency, allow clicking to toggle visibility
+                            const titleOpacity = showTitle ? '1' : '0.3';
+                            const titleColor = showTitle ? 'white' : '#94a3b8';
+                            
                             clueText = `
                                 <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 0.5rem; position: relative;">
-                                    <iframe 
+                                    ${!showTitle ? `<iframe 
                                         id="audio-clue-${i}"
                                         width="1" 
                                         height="1" 
@@ -3226,29 +3274,12 @@
                                         frameborder="0" 
                                         allow="autoplay; encrypted-media" 
                                         style="opacity: 0; position: absolute;">
-                                    </iframe>
+                                    </iframe>` : ''}
                                     <div style="font-size: 2rem;">🎵</div>
+                                    <div style="font-size: 0.875rem; opacity: ${titleOpacity}; color: ${titleColor};">${clue.title || 'Audio Clue'}</div>
                                 </div>
                             `;
                         } else {
-                            // For host: show music icon with title in transparency (like other clues)
-                            clueText = `
-                                <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 0.5rem; position: relative;">
-                                    <iframe 
-                                        id="audio-clue-${i}"
-                                        width="1" 
-                                        height="1" 
-                                        src="${embedUrl}" 
-                                        frameborder="0" 
-                                        allow="autoplay; encrypted-media" 
-                                        style="opacity: 0; position: absolute;">
-                                    </iframe>
-                                    <div style="font-size: 2rem;">🎵</div>
-                                    <div style="font-size: 0.875rem; opacity: 0.3; color: #94a3b8;">${clue.title || 'Audio Clue'}</div>
-                                </div>
-                            `;
-                        }
-                    } else {
                         // Plain text clue - handle both string and object that might be text
                         clueText = typeof clue === 'string' ? clue : (clue || '');
                     }
@@ -3272,10 +3303,14 @@
                 
                 const classes = 'clue-btn' + (revealed ? ' revealed' : '') + (!isHost() ? ' disabled' : '');
                 // For sequences: allow clicking clue 4 if timer is stopped (someone buzzed in)
+                // Allow clicking audio clues after buzzer/timeout to show title to players
+                const isAudioClue = typeof question.clues[i] === 'object' && question.clues[i] !== null && question.clues[i].type === 'audio';
+                const canClickToShowTitle = isAudioClue && revealed && (timerStopped || showCluesTimeUpModal) && !answerRevealed && isHost();
+                
                 const canClickThisClue = isSequence 
-                    ? (i === cluesRevealed && canReveal && isHost()) || (i === 3 && timerStopped && !revealed && isHost())
-                    : (i === cluesRevealed && canReveal && isHost());
-                const onclick = canClickThisClue ? `onclick="revealClue(${i})"` : '';
+                    ? (i === cluesRevealed && canReveal && isHost()) || (i === 3 && timerStopped && !revealed && isHost()) || canClickToShowTitle
+                    : (i === cluesRevealed && canReveal && isHost()) || canClickToShowTitle;
+                const onclick = canClickThisClue ? (canClickToShowTitle ? `onclick="showAudioTitle(${i})"` : `onclick="revealClue(${i})"`) : '';
 
                 html += `<button class="${classes}" ${onclick}>${clueText}</button>`;
                 html += '</div>';
