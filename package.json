@@ -2,13 +2,15 @@
   "name": "only-connect",
   "version": "1.0.0",
   "description": "Only Connect multiplayer game",
-  "main": "server.js",
+  "main": "index.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
     "express": "^4.18.2",
-    "socket.io": "^4.6.1"
+    "socket.io": "^4.6.1",
+    "firebase-functions": "^4.5.0",
+    "firebase-admin": "^11.11.0"
   },
   "engines": {
     "node": "20"
