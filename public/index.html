@@ -1843,8 +1843,12 @@
         function showAudioTitle(index) {
             if (!isHost()) return;
             
-            // This function just triggers a re-render to show the title
-            // The rendering logic will handle showing the title based on timerStopped state
+            // Mark this specific audio clue as having its title revealed
+            if (!window._audioTitlesRevealed) {
+                window._audioTitlesRevealed = {};
+            }
+            window._audioTitlesRevealed[`${currentRound}-${currentQuestion}-${index}`] = true;
+            
             syncGameState();
             render();
         }
@@ -3229,8 +3233,10 @@
                             embedUrl += `&end=${endTime}`;
                         }
                         
-                        // Check if we should show the title (after buzzer or timeout)
-                        const showTitle = timerStopped || showCluesTimeUpModal || answerRevealed;
+                        // Check if we should show the title (only after host clicks or answer revealed)
+                        const titleKey = `${currentRound}-${currentQuestion}-${i}`;
+                        const hostClickedToReveal = window._audioTitlesRevealed && window._audioTitlesRevealed[titleKey];
+                        const showTitle = hostClickedToReveal || answerRevealed;
                         
                         // For players: show only music icon initially, show title after buzzer/timeout
                         if (!isHost()) {
