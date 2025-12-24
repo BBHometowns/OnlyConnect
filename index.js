@@ -1,32 +1,154 @@
-/**
- * Import function triggers from their respective submodules:
- *
- * const {onCall} = require("firebase-functions/v2/https");
- * const {onDocumentWritten} = require("firebase-functions/v2/firestore");
- *
- * See a full list of supported triggers at https://firebase.google.com/docs/functions
- */
+const functions = require('firebase-functions');
+const express = require('express');
+const app = express();
+const http = require('http').createServer(app);
+const io = require('socket.io')(http, {
+    cors: {
+        origin: "*",
+        methods: ["GET", "POST"]
+    }
+});
+const path = require('path');
 
-const {setGlobalOptions} = require("firebase-functions");
-const {onRequest} = require("firebase-functions/https");
-const logger = require("firebase-functions/logger");
+// Serve static files from public directory
+app.use(express.static('public'));
 
-// For cost control, you can set the maximum number of containers that can be
-// running at the same time. This helps mitigate the impact of unexpected
-// traffic spikes by instead downgrading performance. This limit is a
-// per-function limit. You can override the limit for each function using the
-// `maxInstances` option in the function's options, e.g.
-// `onRequest({ maxInstances: 5 }, (req, res) => { ... })`.
-// NOTE: setGlobalOptions does not apply to functions using the v1 API. V1
-// functions should each use functions.runWith({ maxInstances: 10 }) instead.
-// In the v1 API, each function can only serve one request per container, so
-// this will be the maximum concurrent request count.
-setGlobalOptions({ maxInstances: 10 });
+// Serve the main HTML file
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
-// Create and deploy your first functions
-// https://firebase.google.com/docs/functions/get-started
+// Game state storage
+const games = new Map();
 
-// exports.helloWorld = onRequest((request, response) => {
-//   logger.info("Hello logs!", {structuredData: true});
-//   response.send("Hello from Firebase!");
-// });
+io.on('connection', (socket) => {
+    console.log('User connected:', socket.id);
+
+    socket.on('createGame', (gameCode) => {
+        if (games.has(gameCode)) {
+            socket.emit('gameCodeExists');
+            return;
+        }
+
+        games.set(gameCode, {
+            host: socket.id,
+            secondaryHost: null,
+            players: [],
+            gameState: {}
+        });
+
+        socket.join(gameCode);
+        socket.gameCode = gameCode;
+        socket.emit('gameCreated', { gameCode, role: 'host' });
+        console.log(`Game created: ${gameCode}`);
+    });
+
+    socket.on('joinGame', ({ gameCode, playerName }) => {
+        const game = games.get(gameCode);
+
+        if (!game) {
+            socket.emit('gameNotFound');
+            return;
+        }
+
+        const playerRole = `player${game.players.length + 1}`;
+        game.players.push({ id: socket.id, name: playerName, role: playerRole });
+
+        socket.join(gameCode);
+        socket.gameCode = gameCode;
+        socket.playerName = playerName;
+        socket.emit('gameJoined', { gameCode, role: playerRole, playerName });
+
+        io.to(gameCode).emit('playersUpdated', { players: game.players });
+
+        if (game.gameState && Object.keys(game.gameState).length > 0) {
+            socket.emit('syncGameState', game.gameState);
+        }
+
+        console.log(`${playerName} joined game: ${gameCode}`);
+    });
+
+    socket.on('joinAsSecondaryHost', ({ gameCode }) => {
+        const game = games.get(gameCode);
+
+        if (!game) {
+            socket.emit('gameNotFound');
+            return;
+        }
+
+        game.secondaryHost = socket.id;
+        socket.join(gameCode);
+        socket.gameCode = gameCode;
+        socket.emit('secondaryHostJoined', { gameCode, role: 'secondaryHost' });
+
+        if (game.gameState && Object.keys(game.gameState).length > 0) {
+            socket.emit('syncGameState', game.gameState);
+        }
+
+        console.log(`Secondary host joined game: ${gameCode}`);
+    });
+
+    socket.on('syncState', (gameState) => {
+        const game = games.get(socket.gameCode);
+        if (game && socket.id === game.host) {
+            game.gameState = gameState;
+            socket.to(socket.gameCode).emit('syncGameState', gameState);
+        }
+    });
+
+    socket.on('hostAction', ({ type, params }) => {
+        const game = games.get(socket.gameCode);
+        if (game && socket.id === game.host) {
+            socket.to(socket.gameCode).emit('gameAction', { type, params });
+        }
+    });
+
+    socket.on('buzzIn', () => {
+        const game = games.get(socket.gameCode);
+        if (game && socket.playerName) {
+            io.to(socket.gameCode).emit('playerBuzzed', { playerName: socket.playerName });
+        }
+    });
+
+    socket.on('playerClickedTile', ({ tileId }) => {
+        const game = games.get(socket.gameCode);
+        if (game) {
+            io.to(game.host).emit('playerClickedTile', { tileId });
+        }
+    });
+
+    socket.on('disconnect', () => {
+        console.log('User disconnected:', socket.id);
+
+        if (socket.gameCode) {
+            const game = games.get(socket.gameCode);
+            if (game) {
+                if (socket.id === game.host) {
+                    io.to(socket.gameCode).emit('hostDisconnected');
+                    games.delete(socket.gameCode);
+                    console.log(`Game ${socket.gameCode} ended (host disconnected)`);
+                } else {
+                    game.players = game.players.filter(p => p.id !== socket.id);
+                    io.to(socket.gameCode).emit('playersUpdated', { players: game.players });
+                }
+            }
+        }
+    });
+});
+
+// Export the Express app as a Firebase Function
+exports.app = functions.https.onRequest(app);
+
+// Attach Socket.IO to the function
+const socketIoHandler = (req, res) => {
+    if (!res.socket.server.io) {
+        res.socket.server.io = io;
+        io.attach(res.socket.server);
+    }
+    res.end();
+};
+
+exports.app = functions.https.onRequest((req, res) => {
+    socketIoHandler(req, res);
+    app(req, res);
+});
