@@ -3279,7 +3279,8 @@
                                     <div style="font-size: 0.875rem; opacity: ${titleOpacity}; color: ${titleColor};">${clue.title || 'Audio Clue'}</div>
                                 </div>
                             `;
-                        } else {
+                        }
+                    } else {
                         // Plain text clue - handle both string and object that might be text
                         clueText = typeof clue === 'string' ? clue : (clue || '');
                     }
@@ -3301,17 +3302,18 @@
                     }
                 }
                 
-                const classes = 'clue-btn' + (revealed ? ' revealed' : '') + (!isHost() ? ' disabled' : '');
-                // For sequences: allow clicking clue 4 if timer is stopped (someone buzzed in)
                 // Allow clicking audio clues after buzzer/timeout to show title to players
                 const isAudioClue = typeof question.clues[i] === 'object' && question.clues[i] !== null && question.clues[i].type === 'audio';
                 const canClickToShowTitle = isAudioClue && revealed && (timerStopped || showCluesTimeUpModal) && !answerRevealed && isHost();
                 
+                const classes = 'clue-btn' + (revealed ? ' revealed' : '') + (!isHost() ? ' disabled' : '');
+                
                 const canClickThisClue = isSequence 
                     ? (i === cluesRevealed && canReveal && isHost()) || (i === 3 && timerStopped && !revealed && isHost()) || canClickToShowTitle
                     : (i === cluesRevealed && canReveal && isHost()) || canClickToShowTitle;
+                
                 const onclick = canClickThisClue ? (canClickToShowTitle ? `onclick="showAudioTitle(${i})"` : `onclick="revealClue(${i})"`) : '';
-
+        
                 html += `<button class="${classes}" ${onclick}>${clueText}</button>`;
                 html += '</div>';
             }
