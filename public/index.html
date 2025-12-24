@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BBH Only Connect</title>
-    <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
     <style>
         * {
             margin: 0;
@@ -946,9 +947,22 @@
     <div id="gameContainer"></div>
 
     <script>
-        // Socket.IO connection
-        const socket = io(window.location.origin);
-
+        // Firebase configuration
+        const firebaseConfig = {
+          apiKey: "AIzaSyDFwH8lQwlOysP_6DNFgXuDJCvbPg0Jhz0",
+          authDomain: "bbh-only-connect.firebaseapp.com",
+          databaseURL: "https://bbh-only-connect-default-rtdb.firebaseio.com",
+          projectId: "bbh-only-connect",
+          storageBucket: "bbh-only-connect.firebasestorage.app",
+          messagingSenderId: "845745689572",
+          appId: "1:845745689572:web:c75fe89aac465af7942df1"
+        };
+        
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const sessionId = Date.now().toString() + Math.random().toString(36).substr(2, 9);
+        
         // Game data
         const gameData = {
             exampleRound1: { clues: ["Mercury", "Venus", "Earth", "Mars"], connection: "Rocky planets", points: [0, 0, 0, 0] },
@@ -1106,212 +1120,289 @@
         // Category display
         let currentCategoryName = '';
 
-        // Socket event listeners
-        socket.on('gameCreated', ({ gameCode: code, role }) => {
-            gameCode = code;
-            myRole = role;
-            showSetupModal = false;
-            render();
-        });
-
-        socket.on('gameJoined', ({ gameCode: code, role, playerName }) => {
-            gameCode = code;
-            myRole = role;
-            playerNames = playerName;
-            showSetupModal = false;
-            render();
-        });
-
-        socket.on('secondaryHostJoined', ({ gameCode: code, role }) => {
-            gameCode = code;
-            myRole = role;
-            showSetupModal = false;
-            render();
-        });
-
-        socket.on('gameCodeExists', () => {
-            alert('Game code already exists. Please choose another.');
-        });
-
-        socket.on('gameNotFound', () => {
-            alert('Game not found. Please check the code.');
-        });
-
-        socket.on('playersUpdated', ({ players }) => {
-            allPlayers = players;
-            updatePlayerNamesDisplay();
-            render();
-        });
-
-        socket.on('syncGameState', (gameState) => {
-            console.log('DEBUG Received syncGameState - view:', gameState.view, 'wallTiles.length:', gameState.wallTiles ? gameState.wallTiles.length : 0);
-            if (gameState.wallTiles && gameState.wallTiles.length > 0) {
-                console.log('DEBUG First 3 wall tiles from sync:', gameState.wallTiles.slice(0, 3).map(t => t.text));
-            }
+        // Firebase Realtime Database listeners
+        let gameRef = null;
+        let playersRef = null;
+        let gameStateRef = null;
+        
+        // Helper to set up game references
+        function setupGameReferences(code) {
+            gameRef = database.ref(`games/${code}`);
+            playersRef = gameRef.child('players');
+            gameStateRef = gameRef.child('gameState');
+        }
+        
+        // Create game
+        function createGameInFirebase(code) {
+            const newGameRef = database.ref(`games/${code}`);
             
-            // Store the current timer state
-            const wasTimerRunning = timerInterval !== null && !timerStopped;
+            // Check if game already exists
+            newGameRef.once('value').then((snapshot) => {
+                if (snapshot.exists()) {
+                    alert('Game code already exists. Please choose another.');
+                } else {
+                    // Create the game
+                    newGameRef.set({
+                        host: sessionId,
+                        secondaryHost: null,
+                        players: {},
+                        gameState: {},
+                        createdAt: firebase.database.ServerValue.TIMESTAMP
+                    }).then(() => {
+                        gameCode = code;
+                        myRole = 'host';
+                        showSetupModal = false;
+                        setupGameReferences(code);
+                        listenToPlayers();
+                        listenToBuzzer();
+                        listenToTileClicks();
+                        render();
+                    });
+                }
+            });
+        }
+        
+        // Join game as player
+        function joinGameInFirebase(code, name) {
+            const checkGameRef = database.ref(`games/${code}`);
             
-            // Update all state from host
-            score = gameState.score;
-            view = gameState.view;
-            currentRound = gameState.currentRound;
-            currentQuestion = gameState.currentQuestion;
-            cluesRevealed = gameState.cluesRevealed;
-            answerRevealed = gameState.answerRevealed;
-            completedQuestions = gameState.completedQuestions;
-            timerStopped = gameState.timerStopped;
-            timerElapsedWhenStopped = gameState.timerElapsedWhenStopped;
-            timerStartTime = gameState.timerStartTime;
-            timerDuration = gameState.timerDuration;
-            timerStoppedOnClue = gameState.timerStoppedOnClue;
-            timerRemainingWhenStopped = gameState.timerRemainingWhenStopped;
-            buzzedInPlayer = gameState.buzzedInPlayer;
-            showCluesTimeUpModal = gameState.showCluesTimeUpModal;
+            checkGameRef.once('value').then((snapshot) => {
+                if (!snapshot.exists()) {
+                    alert('Game not found. Please check the code.');
+                } else {
+                    gameCode = code;
+                    setupGameReferences(code);
+                    
+                    // Add player to the game
+                    const playerRef = playersRef.push();
+                    const playerRole = `player${Object.keys(snapshot.val().players || {}).length + 1}`;
+                    
+                    playerRef.set({
+                        id: sessionId,
+                        name: name,
+                        role: playerRole,
+                        joinedAt: firebase.database.ServerValue.TIMESTAMP
+                    }).then(() => {
+                        myRole = playerRole;
+                        playerNames = name;
+                        showSetupModal = false;
+                        listenToPlayers();
+                        listenToGameState();
+                        render();
+                    });
+                }
+            });
+        }
+        
+        // Join as secondary host
+        function joinAsSecondaryHostInFirebase(code) {
+            const checkGameRef = database.ref(`games/${code}`);
             
-            // Wall state
-            const previousWallTiles = wallTiles.map(t => ({...t})); // Deep copy for comparison
-            const previousSolvedGroups = solvedGroups.length;
-            const wasInWallView = (view === 'wall');
-            const wasTimerStarted = wallTimerStarted;
+            checkGameRef.once('value').then((snapshot) => {
+                if (!snapshot.exists()) {
+                    alert('Game not found. Please check the code.');
+                } else {
+                    gameCode = code;
+                    myRole = 'secondaryHost';
+                    setupGameReferences(code);
+                    
+                    // Set secondary host
+                    gameRef.child('secondaryHost').set(sessionId).then(() => {
+                        showSetupModal = false;
+                        listenToPlayers();
+                        listenToGameState();
+                        render();
+                    });
+                }
+            });
+        }
+        
+        // Listen to players updates
+        function listenToPlayers() {
+            if (!playersRef) return;
             
-            wallTiles = gameState.wallTiles;
-            selectedTiles = gameState.selectedTiles;
-            solvedGroups = gameState.solvedGroups;
-            wallLives = gameState.wallLives;
-            wallPhase = gameState.wallPhase;
-            connectionGuesses = gameState.connectionGuesses;
-            wallTimerStarted = gameState.wallTimerStarted;
-            showTimeUpModal = gameState.showTimeUpModal;
-            showWallFrozenModal = gameState.showWallFrozenModal;
+            playersRef.on('value', (snapshot) => {
+                const playersData = snapshot.val();
+                if (playersData) {
+                    allPlayers = Object.values(playersData);
+                    updatePlayerNamesDisplay();
+                    render();
+                }
+            });
+        }
+        
+        // Listen to game state updates (players and secondary host only)
+        function listenToGameState() {
+            if (!gameStateRef || isHost()) return;
             
-            // For players/secondary hosts: detect if tiles need to be animated
-            if (!isHost() && wasInWallView && view === 'wall' && previousWallTiles.length > 0 
-                && wasTimerStarted && wallTimerStarted) {
+            gameStateRef.on('value', (snapshot) => {
+                const gameState = snapshot.val();
+                if (!gameState) return;
                 
-                // Check if any tile positions changed OR a group was solved
-                const positionsChanged = wallTiles.some((tile, idx) => {
-                    const prevTile = previousWallTiles.find(t => t.id === tile.id);
-                    return prevTile && prevTile.position !== tile.position;
-                });
+                console.log('DEBUG Received game state update - view:', gameState.view);
                 
-                if (positionsChanged || solvedGroups.length > previousSolvedGroups) {
-                    window._needsWallPositionUpdate = true;
-                    window._previousWallTiles = previousWallTiles; // Store old positions for animation
+                // Store the current timer state
+                const wasTimerRunning = timerInterval !== null && !timerStopped;
+                
+                // Update all state from host
+                score = gameState.score || 0;
+                view = gameState.view || 'rounds';
+                currentRound = gameState.currentRound;
+                currentQuestion = gameState.currentQuestion;
+                cluesRevealed = gameState.cluesRevealed || 0;
+                answerRevealed = gameState.answerRevealed || false;
+                completedQuestions = gameState.completedQuestions || [];
+                timerStopped = gameState.timerStopped || false;
+                timerElapsedWhenStopped = gameState.timerElapsedWhenStopped || 0;
+                timerStartTime = gameState.timerStartTime;
+                timerDuration = gameState.timerDuration || 60000;
+                timerStoppedOnClue = gameState.timerStoppedOnClue;
+                timerRemainingWhenStopped = gameState.timerRemainingWhenStopped;
+                buzzedInPlayer = gameState.buzzedInPlayer;
+                showCluesTimeUpModal = gameState.showCluesTimeUpModal || false;
+                
+                // Wall state
+                const previousWallTiles = wallTiles.map(t => ({...t}));
+                const previousSolvedGroups = solvedGroups.length;
+                const wasInWallView = (view === 'wall');
+                const wasTimerStarted = wallTimerStarted;
+                
+                wallTiles = gameState.wallTiles || [];
+                selectedTiles = gameState.selectedTiles || [];
+                solvedGroups = gameState.solvedGroups || [];
+                wallLives = gameState.wallLives || 3;
+                wallPhase = gameState.wallPhase || 'setup';
+                connectionGuesses = gameState.connectionGuesses || {};
+                wallTimerStarted = gameState.wallTimerStarted || false;
+                showTimeUpModal = gameState.showTimeUpModal || false;
+                showWallFrozenModal = gameState.showWallFrozenModal || false;
+                
+                // For players/secondary hosts: detect if tiles need to be animated
+                if (!isHost() && wasInWallView && view === 'wall' && previousWallTiles.length > 0 
+                    && wasTimerStarted && wallTimerStarted) {
+                    
+                    const positionsChanged = wallTiles.some((tile) => {
+                        const prevTile = previousWallTiles.find(t => t.id === tile.id);
+                        return prevTile && prevTile.position !== tile.position;
+                    });
+                    
+                    if (positionsChanged || solvedGroups.length > previousSolvedGroups) {
+                        window._needsWallPositionUpdate = true;
+                        window._previousWallTiles = previousWallTiles;
+                    } else {
+                        window._needsWallPositionUpdate = false;
+                    }
                 } else {
                     window._needsWallPositionUpdate = false;
                 }
-            } else {
-                window._needsWallPositionUpdate = false;
-            }
-            
-            // Vowels state
-            vowelsCurrentCategory = gameState.vowelsCurrentCategory;
-            vowelsCurrentClue = gameState.vowelsCurrentClue;
-            vowelsCategoryRevealed = gameState.vowelsCategoryRevealed;
-            vowelsCategoryAnimating = gameState.vowelsCategoryAnimating;
-            vowelsClueRevealed = gameState.vowelsClueRevealed;
-            vowelsAnswerRevealed = gameState.vowelsAnswerRevealed;
-            vowelsShowTimeUpModal = gameState.vowelsShowTimeUpModal;
-            currentCategoryName = gameState.currentCategoryName || '';
-            
-            // Handle timer state
-            if (timerInterval) {
-                clearInterval(timerInterval);
-                timerInterval = null;
-            }
-
-            // If timer is stopped and we have a frozen time, show it
-            if (timerStopped && timerRemainingWhenStopped !== null) {
-                updateTimerDisplay(timerRemainingWhenStopped);
-            } else if (!timerStopped && timerStartTime) {
-                // Timer is running
-                const now = Date.now();
-                const elapsed = timerElapsedWhenStopped + (now - timerStartTime);
-                const remaining = Math.max(0, timerDuration - elapsed);
                 
-                updateTimerDisplay(remaining);
+                // Vowels state
+                vowelsCurrentCategory = gameState.vowelsCurrentCategory || 0;
+                vowelsCurrentClue = gameState.vowelsCurrentClue || 0;
+                vowelsCategoryRevealed = gameState.vowelsCategoryRevealed || false;
+                vowelsCategoryAnimating = gameState.vowelsCategoryAnimating || false;
+                vowelsClueRevealed = gameState.vowelsClueRevealed || false;
+                vowelsAnswerRevealed = gameState.vowelsAnswerRevealed || false;
+                vowelsShowTimeUpModal = gameState.vowelsShowTimeUpModal || false;
+                currentCategoryName = gameState.currentCategoryName || '';
                 
-                if (remaining > 0) {
-                    timerInterval = setInterval(updateTimer, 100);
+                // Handle timer state
+                if (timerInterval) {
+                    clearInterval(timerInterval);
+                    timerInterval = null;
                 }
-            }
-            
-            // Special handling for wall tile animations on non-host clients
-            if (window._needsWallPositionUpdate) {
-                window._needsWallPositionUpdate = false;
-                
-                // Update state displays without full re-render (preserves animation)
-                updateWallStateWithoutRender();
-                
-                // Then animate the tiles
-                setTimeout(() => {
-                    updateTilePositionsInDOM();
-                }, 50);
-            } else {
-                // Normal render for everything else
-                render();
-            }
-        });
-
-        socket.on('playerBuzzed', ({ playerName }) => {
-            buzzedInPlayer = playerName;
-            if (isHost()) {
-                // Stop timer when player buzzes
-                stopTimer();
-                render();
-            } else {
-                // On player side, just update the UI
-                render();
-            }
-        });
-
-        socket.on('gameAction', (action) => {
-            // Players only - host ignores its own broadcasts
-            if (isHost()) return;
-            
-            // Handle dismissTimeUpModal specifically
-            if (action.type === 'dismissTimeUpModal') {
-                showCluesTimeUpModal = false;
-                render();
-            } else if (typeof window[action.type] === 'function') {
-                // Execute other actions
-                window[action.type].apply(null, action.params || []);
-            }
-        });
-
-        socket.on('wallAction', ({ action }) => {
-            // Handle wall actions from players (only host processes these)
-            if (myRole === 'host') {
-                console.log('DEBUG HOST received wallAction:', action);
-                if (action.type === 'toggleTile') {
-                    toggleTile(action.tileId);
-                } else if (action.type === 'checkGroup') {
-                    checkGroup();
+        
+                if (timerStopped && timerRemainingWhenStopped !== null) {
+                    updateTimerDisplay(timerRemainingWhenStopped);
+                } else if (!timerStopped && timerStartTime) {
+                    const now = Date.now();
+                    const elapsed = timerElapsedWhenStopped + (now - timerStartTime);
+                    const remaining = Math.max(0, timerDuration - elapsed);
+                    
+                    updateTimerDisplay(remaining);
+                    
+                    if (remaining > 0) {
+                        timerInterval = setInterval(updateTimer, 100);
+                    }
                 }
+                
+                // Special handling for wall tile animations on non-host clients
+                if (window._needsWallPositionUpdate) {
+                    window._needsWallPositionUpdate = false;
+                    updateWallStateWithoutRender();
+                    setTimeout(() => {
+                        updateTilePositionsInDOM();
+                    }, 50);
+                } else {
+                    render();
+                }
+            });
+        }
+        
+        // Player buzzes in
+        function buzzIn() {
+            if (!isPlayer() || !gameCode) return;
+            
+            database.ref(`games/${gameCode}/buzzer`).set({
+                playerName: playerNames,
+                timestamp: firebase.database.ServerValue.TIMESTAMP
+            });
+        }
+        
+        // Listen for buzzer (host only)
+        function listenToBuzzer() {
+            if (!isHost() || !gameCode) return;
+            
+            database.ref(`games/${gameCode}/buzzer`).on('value', (snapshot) => {
+                const buzzerData = snapshot.val();
+                if (buzzerData && buzzerData.playerName) {
+                    buzzedInPlayer = buzzerData.playerName;
+                    stopTimer();
+                    
+                    // Clear the buzzer after handling
+                    database.ref(`games/${gameCode}/buzzer`).remove();
+                    
+                    // Update game state
+                    syncGameState();
+                    render();
+                }
+            });
+        }
+        
+        // Player clicks tile (wall)
+        function playerClicksTile(tileId) {
+            if (!isPlayer() || !gameCode) return;
+            
+            database.ref(`games/${gameCode}/tileClick`).set({
+                tileId: tileId,
+                timestamp: firebase.database.ServerValue.TIMESTAMP
+            });
+        }
+        
+        // Listen for tile clicks (host only)
+        function listenToTileClicks() {
+            if (!isHost() || !gameCode) return;
+            
+            database.ref(`games/${gameCode}/tileClick`).on('value', (snapshot) => {
+                const tileClickData = snapshot.val();
+                if (tileClickData && tileClickData.tileId !== undefined) {
+                    console.log('DEBUG Host received tile click:', tileClickData.tileId);
+                    toggleTile(tileClickData.tileId);
+                    
+                    // Clear the tile click after handling
+                    database.ref(`games/${gameCode}/tileClick`).remove();
+                }
+            });
+        }
+
+        // Initialize host listeners when game is created
+        function initializeHostListeners() {
+            if (isHost() && gameCode) {
+                listenToBuzzer();
+                listenToTileClicks();
             }
-        });
-
-        socket.on('playerToggleTile', ({ tileId }) => {
-            console.log('DEBUG Host received playerToggleTile:', tileId);
-            if (isHost()) {
-                toggleTile(tileId);
-            }
-        });
-
-        socket.on('playerClickedTile', ({ tileId }) => {
-            console.log('DEBUG Received playerClickedTile event:', tileId, 'isHost:', isHost());
-            if (isHost()) {
-                console.log('DEBUG Host processing player tile click');
-                toggleTile(tileId);
-            }
-        });
-
-        socket.on('hostDisconnected', () => {
-            alert('Host disconnected. Game session ended.');
-            location.reload();
-        });
-
+        }
+        
         // Helper functions
         function isHost() {
             return myRole === 'host';
@@ -1374,12 +1465,15 @@
                 vowelsAnswerRevealed
             };
             
-            socket.emit('syncState', state);
+            if (gameStateRef) {
+                gameStateRef.set(state);
+            }
         }
         
         function broadcastAction(type, params = []) {
+            // Firebase handles state sync automatically, no need for separate actions
             if (!isHost()) return;
-            socket.emit('hostAction', { type, params });
+            // Actions are handled through gameState sync
         }
         
         function updatePlayerNamesDisplay() {
@@ -1591,7 +1685,7 @@
                 if ((view === 'clues' && cluesRevealed > 0 && !timerStopped) ||
                     (view === 'vowels' && vowelsCategoryRevealed && vowelsClueRevealed && !timerStopped)) {
                     event.preventDefault();
-                    socket.emit('buzzIn');
+                    buzzIn();
                 }
             }
         });
@@ -2599,7 +2693,7 @@
                 
                 // For players, make tiles clickable; for host, tiles aren't directly clickable
                 const canPlayerClick = isPlayer() && !tile.solved && wallPhase === 'solving' && wallTimerStarted && !timerStopped;
-                const onclick = canPlayerClick ? `onclick="socket.emit('playerClickedTile', { tileId: ${tile.id} })"` : '';
+                const onclick = canPlayerClick ? `onclick="playerClicksTile(${tile.id})"` : '';
 
                 const style = `top: ${topPx}px; left: ${leftCalc}; width: ${tileWidth};`;
 
@@ -2941,7 +3035,7 @@
                 return;
             }
             
-            socket.emit('joinAsSecondaryHost', { gameCode: code });
+            joinAsSecondaryHostInFirebase(code);
         }
 
         function createGame() {
@@ -2954,7 +3048,7 @@
                 return;
             }
             
-            socket.emit('createGame', code);
+            createGameInFirebase(code);
         }
 
         function proceedToName() {
@@ -2987,7 +3081,7 @@
                 return;
             }
             
-            socket.emit('joinGame', { gameCode, playerName: name });
+            joinGameInFirebase(gameCode, name);
         }
 
         function renderRoundSelector() {
