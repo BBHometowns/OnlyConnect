@@ -1305,6 +1305,9 @@
                 vowelsAnswerRevealed = gameState.vowelsAnswerRevealed || false;
                 vowelsShowTimeUpModal = gameState.vowelsShowTimeUpModal || false;
                 currentCategoryName = gameState.currentCategoryName || '';
+
+                // Audio titles revealed state
+                window._audioTitlesRevealed = gameState.audioTitlesRevealed || {};
                 
                 // Handle timer state
                 if (timerInterval) {
@@ -1462,7 +1465,10 @@
                 vowelsCategoryRevealed,
                 vowelsCategoryAnimating,
                 vowelsClueRevealed,
-                vowelsAnswerRevealed
+                vowelsAnswerRevealed,
+                
+                // Audio titles revealed state
+                audioTitlesRevealed: window._audioTitlesRevealed || {}
             };
             
             if (gameStateRef) {
@@ -1782,6 +1788,7 @@
             showWallFrozenModal = false;
             vowelsShowTimeUpModal = false;
             buzzedInPlayer = null;
+            window._audioTitlesRevealed = {}; // Reset audio title reveals for new question
             
             // Reset the timer
             if (timerInterval) {
@@ -1847,10 +1854,14 @@
             if (!window._audioTitlesRevealed) {
                 window._audioTitlesRevealed = {};
             }
-            window._audioTitlesRevealed[`${currentRound}-${currentQuestion}-${index}`] = true;
+            const titleKey = `${currentRound}-${currentQuestion}-${index}`;
+            window._audioTitlesRevealed[titleKey] = true;
             
-            syncGameState();
+            // Immediately render to show the title
             render();
+            
+            // Then sync to other players
+            syncGameState();
         }
 
         function markCorrect() {
@@ -2003,7 +2014,16 @@
         function endSession() {
             if (!isHost()) return;
             
-            location.reload();
+            // Clean up the game from Firebase before reloading
+            if (gameCode && gameRef) {
+                gameRef.remove().then(() => {
+                    location.reload();
+                }).catch(() => {
+                    location.reload();
+                });
+            } else {
+                location.reload();
+            }
         }
 
         // Round 4 (Missing Vowels) functions
@@ -3726,6 +3746,13 @@
             }
         }
 
+        // Clean up game when host closes window
+        window.addEventListener('beforeunload', () => {
+            if (isHost() && gameCode && gameRef) {
+                gameRef.remove();
+            }
+        });
+        
         // Initialize
         render();
     </script>
