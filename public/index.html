@@ -965,13 +965,13 @@
         
         // Game data
         const gameData = {
-            exampleRound1: { clues: ["Mercury", "Venus", "Earth", "Mars"], connection: "Rocky planets", points: [0, 0, 0, 0] },
+            exampleRound1: { clues: ["Ashley Keenan", "Carl Landon Clark", "Mitchell Stokes", "Josh Consalvo"], connection: "BBH Production Members", points: [0, 0, 0, 0] },
             round1: [
-                { clues: ["NM<br>1912", "AZ<br>1912", "AK<br>1959", "HI<br>1959"], answer: "HI<br>1959", sequence: "Last 5 US States to the Union", points: [5, 3, 2] },
-                { clues: ["Sugar", "Eggs", "Cream Cheese", "Graham Cracker"], connection: "Core Cheesecake Ingredients", points: [5, 3, 2, 1] },
-                { clues: ["Tyler Brown", "Ryan Lilly", "Kari Link", "Sam Focer"], connection: "HTL1 Winners: Team Boy George ...", points: [5, 3, 2, 1] },
-                { clues: ["Morocco", "United Kingdom", "Andorra", "Portugal"], connection: "Countries That [Land] Border Spain", points: [5, 3, 2, 1] },
-                { clues: ["Jasper", "Alice", "Alexa", "Siri"], connection: "AI Personal Assistants", points: [5, 3, 2, 1] },
+                { clues: ["Costa", "Simply", "Fanta", "Dasani"], connection: "Coca Cola Products", points: [5, 3, 2, 1] },
+                { clues: ["1", "Group 1", "1.0079", "H"], connection: "Identifiers of Hydrogen on the Table of Elements", points: [5, 3, 2, 1] },
+                { clues: ["Go?", "Are", "House", "Carter"], connection: "Last Words of Multi-Word", points: [5, 3, 2, 1] },
+                { clues: ["Aconcagua", "Denali<br>McKinley", "Kilimanjaro", "Mount Everest"], connection: "Seven Summits / Highest Continent Peaks", points: [5, 3, 2, 1] },
+                { clues: ["Jasper", "Alice", "Alexa", "Siri"], connection: "AI Companions", points: [5, 3, 2, 1] },
                 { clues: [
                     {
                         type: "audio",
@@ -1001,69 +1001,97 @@
                         start: 19,
                         duration: 30
                     },
-                    
-                    { type: "audio", youtube: "maONL_HfI20", title: "Golden Hour" },
-                    { type: "audio", youtube: "PEM0Vs8jf1w", title: "Golden Hour" },
-                    { type: "audio", youtube: "KLVq0IAzh1A", title: "Fields of Gold" }
                 ],
                  connection: "Songs with Gold in the Title",
                  points: [5, 3, 2, 1]
                 },
             ],
-            exampleRound2: { clues: ["1st", "2nd", "3rd", "4th"], answer: "4th", sequence: "Ordinal numbers", points: [0, 0, 0] },
+            exampleRound2: { clues: ["Mercury", "Earth", "Jupiter", "Uranus"], answer: "Uranus", sequence: "Every Other Planet", points: [0, 0, 0] },
             round2: [
-                { clues: ["Vecepia Towery", "Sandra Diaz-Twine", "Danni Boatwright", "Natalie White"], answer: "Natalie White", sequence: "Every Other Female Survivor Winner", points: [5, 3, 2] },
-                { clues: ["Max Teddy", "Sara Flanagan", "Justin Powell", "Megs Espinosa"], answer: "Megs Espinosa", sequence: "Successive Unanimous BBH Winners", points: [5, 3, 2] },
-                { clues: ["The Silence Breakers", "The Guardians", ["<div style='font-size: 0.75rem; line-height 1.2;'>Joe Biden &<br>Kamala Harris</div>"], "The Spirit of Ukraine"], answer: "The Spirit of Ukraine", sequence: "Most Recent Non-Single Human Times Person of the Year Winners", points: [5, 3, 2] },
-                { clues: ["117<br>Tennessine", "113<br>Nihonium", "115<br>Moscovium", "118<br>Oganesson"], answer: "118<br>Oganesson", sequence: "Most Recently Discovered Chemical Elements From Most Recent", points: [5, 3, 2] },
-                { clues: ["Hyper", "Text", "Markup", "Language"], answer: "Language", sequence: "HTML acronym words", points: [5, 3, 2] },
-                { clues: ["Delaware", "Pennsylvania", "New Jersey", "Georgia"], answer: "Georgia", sequence: "First Four States to Join the Union", points: [5, 3, 2] }
+                { clues: ["NM<br>1912", "AZ<br>1912", "AK<br>1959", "HI<br>1959"], answer: "HI<br>1959", sequence: "Last 5 US States to the Union", points: [5, 3, 2] },
+                { clues: ["Go?", "Are", "House", "Carter"], answer: "Carter", sequence: "2020s Multi-Word Albums of the Year (GRAMMYs)", points: [5, 3, 2] },
+                { clues: ["Humpty<br>Again", "Humpty<br>Men", "All<br>Fall", "Couldn't<br>Wall"], answer: "Couldn't<br>Wall", sequence: "Beginning --> & Final <-- Words of Humpty Dumpty Lines", points: [5, 3, 2] },
+                { clues: ["Tina Wesson", "Danni Boatwright", "Sophie Clarke", "Michele Fitzgerald"], answer: "Michele Fitzgerald", sequence: "First Female Survivor Winner In Each Decade", points: [5, 3, 2] },
+                { clues: ["MST", "PST", "AKST", "HST"], answer: "HST, TAHT, CKT, SST, NUT, SDT, IDLW, BIT", sequence: "Standard Time Zones Going West", points: [5, 3, 2] },
+                { clues: [
+                    {
+                        type: "audio",
+                        youtube: "FgCWw2zmeeo",
+                        title: "Gypsy",
+                        start: 78,
+                        duration: 30
+                    },
+                    {
+                        type: "audio",
+                        youtube: "vBynw9Isr28",
+                        title: "Abracadabra",
+                        start: 40,
+                        duration: 30
+                    },
+                    {
+                        type: "audio",
+                        youtube: "tep9uGsVzK4",
+                        title: "Garden of Eden",
+                        start: 37,
+                        duration: 30
+                    },
+                    "Applause"
+                ], answer: "Applause, Alejandro, Americano, ARTPOP, ...", sequence: "First Letters of Gaga Songs Spelling G-A-G-A", points: [5, 3, 2] }
             ],
             round3: [
                 {
                     groups: [
-                        { items: ["Dragonite", "Hawlucha", "Starmie", "Gyarados"], connection: "Mega-Evolved Pokemon" },
-                        { items: ["History Channel", "YouTube", "23andMe", "Pinsir"], connection: "Proper Nouns/Names with Pronouns Spelled/Said" },
-                        { items: ["Lincoln", "Hoover", "Ford", "Johnson"], connection: "Presidents whose last name is also a company name" },
-                        { items: ["Honda", "Dodge", "Maserati", "Ferrari"], connection: "Last Name-named car companies" }
+                        { items: ["Times", "Courier", "Arial", "Instagram"], connection: "Fonts / Typefaces" },
+                        { items: ["Twitter", "Spot", "Wrong", "Kisses"], connection: "Represented by <q>X</q>" },
+                        { items: ["Pots", "Opts", "Post", "Tops"], connection: "STOP Anadrome" },
+                        { items: ["Messenger", "Bearer", "Runner", "Page"], connection: "Synonyms for Postal/Mail Carriers" }
                     ]
                 }
             ],
             round4: [
                 {
-                    category: "GAMES ON BOARD GAME ARENA",
+                    category: "OLYMPIC HOST CITIES AND COUNTRIES",
                     clues: [
-                        { withoutVowels: "C DN MS", answer: "CODENAMES" },
-                        { withoutVowels: "YK H M", answer: "YOKOHAMA" },
-                        { withoutVowels: "CH NSC HC KRS", answer: "CHINESE CHECKERS" },
-                        { withoutVowels: "GN T SFR D NT S", answer: "GO NUTS FOR DONUTS" }
+                        { withoutVowels: "PR SFR N C", answer: "PARIS, FRANCE" },
+                        { withoutVowels: "L ND NN GLN D", answer: "LONDON, ENGLAND" },
+                        { withoutVowels: "NNSB R CKS TR", answer: "INNSBRUCK, AUSTRIA" },
+                        { withoutVowels: "SL TL KCTN TDS TS", answer: "SALT LAKE CITY, UNITED STATES" }
                     ]
                 },
                 {
-                    category: "COUNTRIES AND CAPITALS",
+                    category: "BOOK TITLES WITH NUMBERS RAISED BY 1",
                     clues: [
-                        { withoutVowels: "BN SRS RG NT N", answer: "BUENOS AIRES, ARGENTINA" },
-                        { withoutVowels: "K LL MPR M LYS", answer: "KUALA LAMPUR, MALAYSIA" },
-                        { withoutVowels: "BCH R STR MN", answer: "BUCHAREST, ROMANIA" },
-                        { withoutVowels: "BD HBN TD R BMR TS", answer: "ABU DHABI, UNITED ARAB EMIRATES" }
+                        { withoutVowels: "THR TN THN G HT", answer: "THIRTEENTH NIGHT" },
+                        { withoutVowels: "TL FTH RCT S", answer: "(A) TALE OF THREE CITIES" },
+                        { withoutVowels: "T WFS HT H RFS HR DFSH BL FSH", answer: "TWO FISH, THREE FISH, RED FISH, BLUE FISH" },
+                        { withoutVowels: "THF RM SKTR S", answer: "THE FOUR MUSKETEERS" }
                     ]
                 },
                 {
-                    category: "BBH PROD MEMBERS",
+                    category: "PROVERBIAL PHRASES",
                     clues: [
-                        { withoutVowels: "JS HCN SL V", answer: "JOSH(UA) CONSALVO" },
-                        { withoutVowels: "C RLL ND NC LRK", answer: "CARL LANDON CLARK" },
-                        { withoutVowels: "S HL YK N N", answer: "ASHLEY KEENAN" },
-                        { withoutVowels: "S TRL NGP RDNC", answer: "STERLING PRUDENCIO" }
+                        { withoutVowels: "NY FRN Y TT HFRT TH", answer: "AN EYE FOR AN EYE, A TOOTH FOR A TOOTH" },
+                        { withoutVowels: "K NKN W D", answer: "KNOCK ON WOOD" },
+                        { withoutVowels: "NP NN GN", answer: "NO PAIN, NO GAIN" },
+                        { withoutVowels: "P RCT CM KSP R FCT", answer: "PRACTICE MAKES PERFECT" }
                     ]
                 },
                 {
-                    category: "GAMES CARL OR FOCER HAVE WON",
+                    category: "ASTROLOGY SIGNS -AND- THE MONTH IN WHICH THEY START",
                     clues: [
-                        { withoutVowels: "N STN CT", answer: "INSTINCT" },
-                        { withoutVowels: "B G BRT HRH MT WNS", answer: "BIG BROTHER HOMETOWNS" },
-                        { withoutVowels: "BT TLGR NDSS QDG M", answer: "BATTLEGROUNDS: SQUID GAME" },
-                        { withoutVowels: "S BVR S NG RN DZR", answer: "SUBVERSION: GROUND ZERO" }
+                        { withoutVowels: "C N CRN DJ N", answer: "CANCER AND JUNE" },
+                        { withoutVowels: "SG TTRS NDN VM BR", answer: "SAGITTARIUS AND NOVEMBER" },
+                        { withoutVowels: "QRS ND JNR Y", answer: "AQUARIUS AND JANUARY" },
+                        { withoutVowels: "LN D JLY", answer: "LEO AND JULY" }
+                    ]
+                },
+                {
+                    category: "VIDEO GAME MASCOTS -AND- THEIR FRANCHISE",
+                    clues: [
+                        { withoutVowels: "PK CHN DP KMN", answer: "PIKACHU AND POKEMON" },
+                        { withoutVowels: "MRN D SP RMR BRS", answer: "MARIO AND SUPER MARIO BROS" },
+                        { withoutVowels: "SB LL ND NML CR SSN G", answer: "ISABELLE AND ANIMAL CROSSING" },
+                        { withoutVowels: "PCM NN DPC MN", answer: "PAC-MAN AND PAC-MAN" }
                     ]
                 }
             ]
