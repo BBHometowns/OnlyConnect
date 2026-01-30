@@ -220,7 +220,7 @@
         }
 
         .clue-container {
-            background: rgba(30, 30, 30, 0.9);
+            background: transparent;
             backdrop-filter: blur(12px);
             border-radius: 0.5rem;
             padding: 2rem;
@@ -228,7 +228,7 @@
         }
 
         .buttons-container {
-            background: rgba(30, 30, 30, 0.9);
+            background: transparent;
             backdrop-filter: blur(12px);
             border-radius: 0.5rem;
             padding: 2rem;
@@ -3433,6 +3433,7 @@
             const hideButton = vowelsCategoryRevealed ? ' style="visibility: hidden;"' : '';
             html += `<button class="back-btn ${!isHost() || isSecondaryHost() ? 'disabled' : ''}" onclick="backToRounds()"${hideButton}>← Back to Rounds</button>`;
             
+            // Timer bar - always visible, same position as wall timer
             html += '<div class="timer-bar-container"><div id="timerBar" class="timer-bar" style="width: 100%;"></div><div id="timerText" class="timer-text">120s</div></div>';
             
             // Check if current category is complete (all clues answered)
@@ -3446,7 +3447,7 @@
             const categoryOnclick = !vowelsCategoryRevealed && isHost() ? ' onclick="revealCategoryAndStartTimer()"' : '';
             const categoryText = vowelsCategoryRevealed ? category.category : '';
             html += `<div class="${categoryClasses}"${categoryOnclick}>${categoryText}</div>`;
-            
+
             html += '<div class="vowels-clue-box">';
             if (vowelsClueRevealed) {
                 if (vowelsAnswerRevealed) {
