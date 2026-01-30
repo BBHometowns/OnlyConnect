@@ -1150,6 +1150,10 @@
         // Category display
         let currentCategoryName = '';
 
+        // Player statistics tracking
+        let playerStats = {}; // { playerName: { total: 0, round1: 0, round2: 0, round4: 0, points5: 0, points3: 0, points2: 0, points1: 0 } }
+        let showStatsView = false;
+
         // Firebase Realtime Database listeners
         let gameRef = null;
         let playersRef = null;
@@ -1255,6 +1259,25 @@
                 const playersData = snapshot.val();
                 if (playersData) {
                     allPlayers = Object.values(playersData);
+                    
+                    // Initialize stats for new players
+                    if (isHost()) {
+                        allPlayers.forEach(player => {
+                            if (!playerStats[player.name]) {
+                                playerStats[player.name] = {
+                                    total: 0,
+                                    round1: 0,
+                                    round2: 0,
+                                    round4: 0,
+                                    points5: 0,
+                                    points3: 0,
+                                    points2: 0,
+                                    points1: 0
+                                };
+                            }
+                        });
+                    }
+                    
                     updatePlayerNamesDisplay();
                     render();
                 }
@@ -1338,6 +1361,9 @@
 
                 // Audio titles revealed state
                 window._audioTitlesRevealed = gameState.audioTitlesRevealed || {};
+
+                // Player statistics
+                playerStats = gameState.playerStats || {};
                 
                 // Handle timer state
                 if (timerInterval) {
@@ -1498,7 +1524,10 @@
                 vowelsAnswerRevealed,
                 
                 // Audio titles revealed state
-                audioTitlesRevealed: window._audioTitlesRevealed || {}
+                audioTitlesRevealed: window._audioTitlesRevealed || {},
+
+                // Player statistics
+                playerStats: playerStats
             };
             
             if (gameStateRef) {
@@ -1911,8 +1940,31 @@
             // Only add points if not an example question
             if (!isExample) {
                 score += pointsEarned;
+                
+                // Track player stats if someone buzzed in
+                if (buzzedInPlayer && playerStats[buzzedInPlayer]) {
+                    playerStats[buzzedInPlayer].total += pointsEarned;
+                    
+                    // Track by round
+                    if (currentRound === 0) {
+                        playerStats[buzzedInPlayer].round1 += pointsEarned;
+                    } else if (currentRound === 1) {
+                        playerStats[buzzedInPlayer].round2 += pointsEarned;
+                    }
+                    
+                    // Track by point value
+                    if (pointsEarned === 5) {
+                        playerStats[buzzedInPlayer].points5++;
+                    } else if (pointsEarned === 3) {
+                        playerStats[buzzedInPlayer].points3++;
+                    } else if (pointsEarned === 2) {
+                        playerStats[buzzedInPlayer].points2++;
+                    } else if (pointsEarned === 1) {
+                        playerStats[buzzedInPlayer].points1++;
+                    }
+                }
             }
-
+        
             // Stop any playing audio
             stopAllAudioClues();
             
@@ -2041,6 +2093,20 @@
             render();
         }
 
+        function viewStats() {
+            if (!isHost()) return;
+            
+            showStatsView = true;
+            render();
+        }
+        
+        function closeStats() {
+            if (!isHost()) return;
+            
+            showStatsView = false;
+            render();
+        }
+
         function endSession() {
             if (!isHost()) return;
             
@@ -2104,11 +2170,16 @@
             console.log('Buzzer cleared');
             
             score += 1;
-            // ... rest of function
-            vowelsAnswerRevealed = true;
-            buzzedInPlayer = null;  // Clear the buzzer
             
-            // DON'T restart timer here - it will restart when next clue is revealed
+            // Track player stats for Missing Vowels (1 point each)
+            if (buzzedInPlayer && playerStats[buzzedInPlayer]) {
+                playerStats[buzzedInPlayer].total += 1;
+                playerStats[buzzedInPlayer].round4 += 1;
+                playerStats[buzzedInPlayer].points1++;
+            }
+            
+            vowelsAnswerRevealed = true;
+            buzzedInPlayer = null;
             
             setTimeout(() => {
                 const clueElement = document.querySelector('.vowels-clue-text');
@@ -3504,15 +3575,75 @@
         }
 
         function renderFinalScore() {
+            if (showStatsView) {
+                return renderStatsView();
+            }
+            
             return `
                 <div class="final-score-container">
                     <div class="final-score-names">${playerNames}</div>
                     <div class="final-score-box">
                         <div class="final-score-value">${score}</div>
                     </div>
+                    ${isHost() ? '<button class="end-session-btn" onclick="viewStats()" style="margin-bottom: 1rem;">View Player Statistics</button>' : ''}
                     <button class="end-session-btn ${!isHost() || isSecondaryHost() ? 'disabled' : ''}" onclick="endSession()">End Session</button>
                 </div>
             `;
+        }
+
+        function renderStatsView() {
+            let html = '<div class="final-score-container" style="max-width: 900px; margin: 0 auto;">';
+            html += '<div class="final-score-names" style="margin-bottom: 2rem;">Player Statistics</div>';
+            
+            // Create table
+            html += '<div style="background: rgba(30, 30, 30, 0.9); border: 2px solid rgba(80, 80, 80, 1); border-radius: 0.5rem; padding: 2rem; color: white; margin-bottom: 2rem;">';
+            html += '<table style="width: 100%; border-collapse: collapse;">';
+            
+            // Header
+            html += '<thead><tr style="border-bottom: 2px solid rgba(255, 255, 255, 0.3);">';
+            html += '<th style="padding: 1rem; text-align: left; font-size: 1.125rem;">Player</th>';
+            html += '<th style="padding: 1rem; text-align: center; font-size: 1.125rem;">Total</th>';
+            html += '<th style="padding: 1rem; text-align: center; font-size: 1.125rem;">R1</th>';
+            html += '<th style="padding: 1rem; text-align: center; font-size: 1.125rem;">R2</th>';
+            html += '<th style="padding: 1rem; text-align: center; font-size: 1.125rem;">R4</th>';
+            html += '<th style="padding: 1rem; text-align: center; font-size: 1.125rem;">5pt</th>';
+            html += '<th style="padding: 1rem; text-align: center; font-size: 1.125rem;">3pt</th>';
+            html += '<th style="padding: 1rem; text-align: center; font-size: 1.125rem;">2pt</th>';
+            html += '<th style="padding: 1rem; text-align: center; font-size: 1.125rem;">1pt</th>';
+            html += '</tr></thead>';
+            
+            // Body
+            html += '<tbody>';
+            
+            // Sort players by total points (descending)
+            const sortedPlayers = Object.entries(playerStats).sort((a, b) => b[1].total - a[1].total);
+            
+            sortedPlayers.forEach(([playerName, stats], index) => {
+                const rowStyle = index % 2 === 0 ? 'background: rgba(255, 255, 255, 0.05);' : '';
+                html += `<tr style="${rowStyle}">`;
+                html += `<td style="padding: 0.75rem; font-weight: bold;">${playerName}</td>`;
+                html += `<td style="padding: 0.75rem; text-align: center; font-weight: bold; font-size: 1.25rem; color: #fbbf24;">${stats.total}</td>`;
+                html += `<td style="padding: 0.75rem; text-align: center;">${stats.round1}</td>`;
+                html += `<td style="padding: 0.75rem; text-align: center;">${stats.round2}</td>`;
+                html += `<td style="padding: 0.75rem; text-align: center;">${stats.round4}</td>`;
+                html += `<td style="padding: 0.75rem; text-align: center; color: #22c55e;">${stats.points5}</td>`;
+                html += `<td style="padding: 0.75rem; text-align: center; color: #3b82f6;">${stats.points3}</td>`;
+                html += `<td style="padding: 0.75rem; text-align: center; color: #a855f7;">${stats.points2}</td>`;
+                html += `<td style="padding: 0.75rem; text-align: center; color: #94a3b8;">${stats.points1}</td>`;
+                html += '</tr>';
+            });
+            
+            html += '</tbody></table>';
+            html += '</div>';
+            
+            // Back and End Session buttons
+            html += '<div style="display: flex; gap: 1rem; justify-content: center;">';
+            html += '<button class="end-session-btn" onclick="closeStats()" style="margin: 0;">Back to Score</button>';
+            html += '<button class="end-session-btn" onclick="endSession()" style="margin: 0;">End Session</button>';
+            html += '</div>';
+            
+            html += '</div>';
+            return html;
         }
 
         function recalculateWallPositions() {
