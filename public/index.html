@@ -756,7 +756,8 @@
             flex-wrap: wrap;
             justify-content: center;
             align-items: center;
-            gap: 0.3em;
+            gap: 0;
+            letter-spacing: normal;
         }
 
         .vowels-letter {
@@ -2333,6 +2334,12 @@
         }
 
         function createAnimatedClueText(withoutVowels, fullAnswer, revealed) {
+            if (revealed) {
+                // When revealed, just show the plain answer without any special formatting
+                return `<div class="vowels-clue-text" style="letter-spacing: normal; gap: 0;">${fullAnswer}</div>`;
+            }
+            
+            // When not revealed, show with vowels hidden
             const answerChars = fullAnswer.split('');
             
             let html = '<div class="vowels-clue-text">';
@@ -2341,12 +2348,12 @@
                 const char = answerChars[i];
                 
                 if (char === ' ') {
-                    html += '<span class="vowels-letter" style="width: 0.5em;"> </span>';
+                    html += '<span class="vowels-letter" style="width: 1em;"> </span>';
                 } else if (isVowel(char)) {
-                    const vowelClass = revealed ? 'vowels-letter vowel revealed' : 'vowels-letter vowel';
-                    html += `<span class="${vowelClass}" style="letter-spacing: normal;">${char}</span>`;
+                    const vowelClass = 'vowels-letter vowel';
+                    html += `<span class="${vowelClass}">${char}</span>`;
                 } else {
-                    html += `<span class="vowels-letter" style="letter-spacing: normal;">${char}</span>`;
+                    html += `<span class="vowels-letter">${char}</span>`;
                 }
             }
             
