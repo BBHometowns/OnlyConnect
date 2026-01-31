@@ -2133,7 +2133,7 @@
             vowelsAnswerRevealed = false;
             vowelsShowTimeUpModal = false;
             resetTimer();
-            timerDuration = 120000;
+            timerDuration = 150000;
         }
 
         function revealCategoryAndStartTimer() {
@@ -3364,10 +3364,10 @@
                         const hostClickedToReveal = window._audioTitlesRevealed && window._audioTitlesRevealed[titleKey];
                         const showTitle = hostClickedToReveal || answerRevealed;
                         
-                        // For players: show only music icon initially, show title after buzzer/timeout
-                        if (!isHost()) {
+                        // For players: show only music icon (NO audio iframe)
+                        if (isPlayer()) {
                             if (showTitle) {
-                                // Show title after buzzer/timeout - no iframe
+                                // Show title after buzzer/timeout
                                 clueText = `
                                     <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 0.5rem;">
                                         <div style="font-size: 2rem;">🎵</div>
@@ -3375,22 +3375,33 @@
                                     </div>
                                 `;
                             } else {
-                                // Just music icon with hidden iframe
+                                // Just music icon - NO iframe for players
                                 clueText = `
-                                    <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 0.5rem; position: relative;">
-                                        <iframe 
-                                            id="audio-clue-${i}"
-                                            width="1" 
-                                            height="1" 
-                                            src="${embedUrl}" 
-                                            frameborder="0" 
-                                            allow="autoplay; encrypted-media" 
-                                            style="opacity: 0; position: absolute;">
-                                        </iframe>
+                                    <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 0.5rem;">
                                         <div style="font-size: 2rem;">🎵</div>
                                     </div>
                                 `;
                             }
+                        } else if (isHost() || isSecondaryHost()) {
+                            // For hosts (main and secondary): show audio with iframe
+                            const titleOpacity = showTitle ? '1' : '0.3';
+                            const titleColor = showTitle ? 'white' : '#94a3b8';
+                            
+                            clueText = `
+                                <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 0.5rem; position: relative;">
+                                    ${!showTitle ? `<iframe 
+                                        id="audio-clue-${i}"
+                                        width="1" 
+                                        height="1" 
+                                        src="${embedUrl}" 
+                                        frameborder="0" 
+                                        allow="autoplay; encrypted-media" 
+                                        style="opacity: 0; position: absolute;">
+                                    </iframe>` : ''}
+                                    <div style="font-size: 2rem;">🎵</div>
+                                    <div style="font-size: 0.875rem; opacity: ${titleOpacity}; color: ${titleColor};">${clue.title || 'Audio Clue'}</div>
+                                </div>
+                            `;
                         } else {
                             // For host: always show title with transparency, allow clicking to toggle visibility
                             const titleOpacity = showTitle ? '1' : '0.3';
