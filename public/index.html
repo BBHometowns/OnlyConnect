@@ -999,9 +999,9 @@
                     },
                     {
                         type: "audio",
-                        youtube: "woLfAvD5iXI",
-                        title: "The Subway<br>Chappel Roan",
-                        start: 18,
+                        youtube: "GemKqzILV4w",
+                        title: "Chasing Cars<br>Snow Patrol",
+                        start: 2,
                         duration: 30
                     },
                 ],
@@ -1150,6 +1150,10 @@
 
         // Category display
         let currentCategoryName = '';
+
+        // Audio tester state
+        let audioTesterPlaying = false;
+        let audioTesterPaused = false;
 
         // Player statistics tracking
         let playerStats = {}; // { playerName: { total: 0, round1: 0, round2: 0, round4: 0, points5: 0, points3: 0, points2: 0, points1: 0 } }
@@ -1365,6 +1369,10 @@
 
                 // Player statistics
                 playerStats = gameState.playerStats || {};
+
+                // Audio tester state
+                audioTesterPlaying = gameState.audioTesterPlaying || false;
+                audioTesterPaused = gameState.audioTesterPaused || false;
                 
                 // Handle timer state
                 if (timerInterval) {
@@ -1529,6 +1537,9 @@
 
                 // Player statistics
                 playerStats: playerStats
+
+                state.audioTesterPlaying = audioTesterPlaying;
+                state.audioTesterPaused = audioTesterPaused;
             };
             
             if (gameStateRef) {
@@ -1770,6 +1781,9 @@
                 console.log('DEBUG Non-host received selectRound - ignoring direct call, will receive via sync');
                 return;
             }
+
+            // Stop audio tester when leaving round selector
+            stopAudioTester();
             
             console.log('DEBUG Host selectRound - processing roundIndex:', roundIndex);
             
@@ -2062,6 +2076,41 @@
             resetTimer();
             
             broadcastAction('backToRounds');
+            syncGameState();
+            render();
+        }
+
+        function playAudioTester() {
+            if (!isHost()) return;
+            
+            audioTesterPlaying = true;
+            audioTesterPaused = false;
+            
+            syncGameState();
+            render();
+        }
+        
+        function pauseAudioTester() {
+            if (!isHost()) return;
+            
+            audioTesterPaused = true;
+            
+            syncGameState();
+            render();
+        }
+        
+        function stopAudioTester() {
+            if (!isHost()) return;
+            
+            audioTesterPlaying = false;
+            audioTesterPaused = false;
+            
+            // Remove the iframe to stop audio
+            const iframe = document.getElementById('audio-tester-iframe');
+            if (iframe) {
+                iframe.remove();
+            }
+            
             syncGameState();
             render();
         }
@@ -3230,7 +3279,7 @@
         }
 
         function renderRoundSelector() {
-            return `
+            let html = `
                 <div class="round-selector">
                     <button class="round-btn ${!isHost() || isSecondaryHost() ? 'disabled' : ''}" onclick="selectRound(0)">
                         <div class="round-title">Round 1</div>
@@ -3250,6 +3299,60 @@
                     </button>
                 </div>
             `;
+            
+            // Audio Tester (only for hosts)
+            if (isHost() || isSecondaryHost()) {
+                html += '<div style="margin-top: 2rem; background: rgba(30, 30, 30, 0.9); border: 2px solid rgba(80, 80, 80, 1); border-radius: 0.5rem; padding: 1.5rem;">';
+                html += '<div style="color: white; font-size: 1.125rem; font-weight: bold; margin-bottom: 1rem; text-align: center;">Audio Level Tester</div>';
+                
+                // Audio player container
+                html += '<div style="background: rgba(255, 255, 255, 0.1); border-radius: 0.5rem; padding: 1.5rem; margin-bottom: 1rem; min-height: 100px; display: flex; align-items: center; justify-content: center;">';
+                
+                if (audioTesterPlaying && !audioTesterPaused) {
+                    // Show playing audio with iframe
+                    const embedUrl = 'https://www.youtube.com/watch?v=psweizZGx44&list=RDpsweizZGx44&start_radio=1&pp=ygUPc2lzc2FsIGluZmluaXR5oAcB';
+                    html += `
+                        <div style="position: relative; width: 100%; height: 100%;">
+                            <iframe 
+                                id="audio-tester-iframe"
+                                width="1" 
+                                height="1" 
+                                src="${embedUrl}" 
+                                frameborder="0" 
+                                allow="autoplay; encrypted-media" 
+                                style="opacity: 0; position: absolute;">
+                            </iframe>
+                            <div style="font-size: 3rem;">🎵</div>
+                        </div>
+                    `;
+                } else {
+                    html += '<div style="font-size: 3rem; color: rgba(255, 255, 255, 0.5);">🎵</div>';
+                }
+                
+                html += '</div>';
+                
+                // Control buttons
+                html += '<div style="display: flex; gap: 1rem; justify-content: center;">';
+                
+                if (!audioTesterPlaying) {
+                    // Show Play button when stopped
+                    html += `<button class="btn btn-primary ${!isHost() ? 'disabled' : ''}" onclick="playAudioTester()" style="width: 120px;">▶ Play</button>`;
+                } else if (audioTesterPaused) {
+                    // Show Resume button when paused
+                    html += `<button class="btn btn-primary ${!isHost() ? 'disabled' : ''}" onclick="playAudioTester()" style="width: 120px;">▶ Resume</button>`;
+                } else {
+                    // Show Pause button when playing
+                    html += `<button class="btn btn-primary ${!isHost() ? 'disabled' : ''}" onclick="pauseAudioTester()" style="width: 120px;">⏸ Pause</button>`;
+                }
+                
+                html += `<button class="btn btn-incorrect ${!isHost() ? 'disabled' : ''}" onclick="stopAudioTester()" style="width: 120px;">⏹ Stop</button>`;
+                html += '</div>';
+                
+                html += '<div style="color: rgba(255, 255, 255, 0.7); font-size: 0.875rem; text-align: center; margin-top: 1rem;">Adjust your audio levels before starting the game</div>';
+                html += '</div>';
+            }
+            
+            return html;
         }
 
         function renderQuestionSelector() {
